@@ -25,6 +25,7 @@ t/20_Net-Analysis_TCPMonologue.t
 t/21_Net-Analysis-TCPSession.t
 t/40_Net-Analysis-Listener-TCP.t
 t/41_Net-Analysis-Listener-HTTP.t
+t/50_Net-Analysis-Examples.t
 t/Net-Analysis.t
 t/t1_google.events.TCP
 t/t1_google.hex

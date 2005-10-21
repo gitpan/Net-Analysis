@@ -1,5 +1,5 @@
 package Net::Analysis::Listener::Example1;
-# $Id: Example1.pm 138 2005-10-21 16:02:55Z abworrall $
+# $Id: Example1.pm 140 2005-10-21 16:31:29Z abworrall $
 
 use strict;
 use warnings;
@@ -62,7 +62,7 @@ Net::Analysis::Listener::Example1 - emit/receive custom events
 You can invoke this example on a TCP capture file from the command line, as
 follows:
 
- $ perl -MNet::Analysis Example1 t/t1_google.tcp
+ $ perl -MNet::Analysis -e main Example1 t/t1_google.tcp
 
 =head1 DESCRIPTION
 

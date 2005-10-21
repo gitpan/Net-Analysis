@@ -14,8 +14,10 @@ sub tcp_monologue {
 
     printf "(%s)  %-22.22s % 6d bytes", $time, $from, $mono->length();
 
-    if ($mono->data() =~ /(.{0,10}$self->{regex}.{0,10})/i) {
-        print " ** regex matched: '$1'";
+    if ($self->{regex}) {
+        if ($mono->data() =~ /(.{0,10}$self->{regex}.{0,10})/i) {
+            print " ** regex matched: '$1'";
+        }
     }
 
     print "\n";
@@ -44,8 +46,10 @@ Net::Analysis::Listener::Example2 - accessing TCP info
 
      printf "(%s)  %-22.22s % 6d bytes", $time, $from, $mono->length();
 
-     if ($mono->data() =~ /(.{0,10}$self->{regex}.{0,10})/i) {
-         print " ** regex matched: '$1'";
+     if ($self->{regex}) {
+         if ($mono->data() =~ /(.{0,10}$self->{regex}.{0,10})/i) {
+             print " ** regex matched: '$1'";
+         }
      }
 
      print "\n";
@@ -56,7 +60,7 @@ Net::Analysis::Listener::Example2 - accessing TCP info
 You can invoke this example on a TCP capture file from the command line, as
 follows:
 
- $ perl -MNet::Analysis Example2,regex=img t/t1_google.tcp
+ $ perl -MNet::Analysis -e main Example2,regex=img t/t1_google.tcp
 
 Note the regex parameter being passed to the Example2 listener.
 

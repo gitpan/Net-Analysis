@@ -1,10 +1,10 @@
 package Net::Analysis::Listener::HTTP;
-# $Id: HTTP.pm 131 2005-10-02 17:24:31Z abworrall $
+# $Id: HTTP.pm 140 2005-10-21 16:31:29Z abworrall $
 
 # {{{ Boilerplate
 
 use 5.008000;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use strict;
 use warnings;
 
@@ -27,7 +27,7 @@ sub validate_configuration {
     my $self = shift;
 
     my %h = validate (@_, { v => {type => SCALAR,
-                                  default => 1} });
+                                  default => 0} });
 
     return \%h;
 }

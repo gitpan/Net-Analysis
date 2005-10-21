@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use Data::Dumper;
 
@@ -237,6 +237,9 @@ L<Net::Analysis::Listener::Example1>.
 For a simple example that greps TCP monologue data, see
 L<Net::Analysis::Listener::Example2>.
 
+For a simple example that looks at the HTTP objects emitted for each HTTP
+transaction, see L<Net::Analysis::Listener::Example3>.
+
 To look at how to write a listener that maintains session state, see
 L<Net::Analysis::Listener::HTTP>.
 
@@ -259,6 +262,7 @@ Move TCP reassembly to Net::LibNIDS ?
 
 L<Net::Analysis::Listener::Example1>,
 L<Net::Analysis::Listener::Example2>,
+L<Net::Analysis::Listener::Example3>,
 L<Net::Analysis::Listener::HTTPClientPerf>,
 L<Net::Pcap>, L<NetPacket>.
 

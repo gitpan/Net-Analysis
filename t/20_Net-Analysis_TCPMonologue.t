@@ -4,7 +4,7 @@
 use strict;
 use Data::Dumper;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 use t::TestFileIntoPackets;
 
 #########################
@@ -41,5 +41,6 @@ is (sprintf ("%017.6f", $mono->t_elapsed()),'0000000000.000069', 't_elapsed');
 # Misc observers
 is ($mono->n_packets(),    2, 'n_packets');
 is ($mono->length(),    2245, 'length');
+is_deeply ($mono->first_packet(), $pkts[4], 'first_packet');
 
 __DATA__

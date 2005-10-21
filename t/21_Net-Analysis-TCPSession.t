@@ -114,13 +114,13 @@ sub get_monologues {
         my $ret = $sesh->process_packet (packet => $pkt);
         ($ret == PKT_REJECTED) && die "logical failure: ".$sesh->errstr();
         if ($ret == PKT_FLIPPED_DIR) {
-            push (@mono, $sesh->previous_monologue()->{data});
+            push (@mono, $sesh->previous_monologue()->data());
         }
         printf "%-100.100s %s\n", "$pkt", "$sesh" if ($D);
     }
 
     if ($sesh->has_current_monologue()) {
-        push (@mono, $sesh->current_monologue()->{data});
+        push (@mono, $sesh->current_monologue()->data());
     }
 
     return \@mono;

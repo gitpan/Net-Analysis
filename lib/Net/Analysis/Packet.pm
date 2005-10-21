@@ -1,8 +1,8 @@
 package Net::Analysis::Packet;
-# $Id: Packet.pm 131 2005-10-02 17:24:31Z abworrall $
+# $Id: Packet.pm 136 2005-10-21 00:14:54Z abworrall $
 
 use 5.008000;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use strict;
 use warnings;
 use Carp qw(carp);
@@ -164,10 +164,23 @@ Net::Analysis::Packet - wrapper for our own view of a packet.
   my $p = Net::Analysis::Packet ( {...} ); # See Net::Analysis::EventLoop
 
   print "My packet:-\n$p";
+  print "Pretty hex dump of payload:-\n".$p->as_string('verbose');
 
 =head1 DESCRIPTION
 
 Internal module for abstracting the underlying packet representation.
+
+It is basically a big hash, containing the following fields:
+
+ to         - ip:port (e.g. "192.0.0.200:8080")
+ from       - ip:port (e.g. "10.0.0.1:13211")
+ flags      - TCP flags (see Net::Analysis::Constants)
+ data       - packet payload (may be empty)
+ seqnum     - the SEQ number of the packet
+ acknum     - the ACK number of the packet
+ pkt_number - packets are numbered from zero as they're read in
+
+ time       - a Net::Analysis::Time object
 
 =head2 EXPORT
 
@@ -175,7 +188,10 @@ None by default.
 
 =head1 SEE ALSO
 
-Net::Analysis::EventLoop - creates these packets
+L<Net::Analysis>,
+L<Net::Analysis::EventLoop>,
+L<Net::Analysis::Time>,
+L<Net::Analysis::Constants>.
 
 =head1 AUTHOR
 

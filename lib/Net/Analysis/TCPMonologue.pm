@@ -1,8 +1,8 @@
 package Net::Analysis::TCPMonologue;
-# $Id: TCPMonologue.pm 131 2005-10-02 17:24:31Z abworrall $
+# $Id: TCPMonologue.pm 136 2005-10-21 00:14:54Z abworrall $
 
 use 5.008000;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use strict;
 use warnings;
 
@@ -26,6 +26,10 @@ Net::Analysis::TCPMonologue - simple class to contain a TCP monologue
 
   my $mono = Net::Analysis::Monologue->new();
   $mono->add_packet($pkt);
+
+  if ($mono->data() =~ /foo/) {
+    print "Mono contained 'foo'\n";
+  }
 
   print "Monologue was " .$mono->length().
         "b long, over "  .$mono->t_elapsed ()." seconds\n";
@@ -100,6 +104,20 @@ sub add_packet {
     #print "Adding packet $pkt to $self\n";
 
     return 1;
+}
+
+# }}}
+# {{{ data
+
+=head2 data ()
+
+The actual data of the monologue; the bytes sent.
+
+=cut
+
+sub data {
+    my ($self) = @_;
+    return $self->{data};
 }
 
 # }}}
@@ -179,6 +197,21 @@ sub length {
 }
 
 # }}}
+# {{{ first_packet
+
+=head2 first_packet ()
+
+Returns the first L<Net::Analysis::Packet> in the monologue. You can use it to
+extract any TCP or IP information about the monologue.
+
+=cut
+
+sub first_packet {
+    my ($self) = @_;
+    return $self->{first_packet};
+}
+
+# }}}
 
 # {{{ as_string
 
@@ -217,8 +250,9 @@ sub _init_from_first_packet {
     }
     $self->{time} = $pkt->{time} + 0; # Make a cloned copy
 
-    # Keep copies of the first ever time.
+    # Keep copies of the first ever time, and the packet itself
     $self->{t_start}  = $self->{time};
+    $self->{first_packet} = $pkt;
 }
 
 # }}}

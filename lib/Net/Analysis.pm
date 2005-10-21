@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Data::Dumper;
 
@@ -97,12 +97,12 @@ Net::Analysis - Modules for analysing network traffic
 
 =head1 SYNOPSIS
 
-Using a builtin analyser:
+Using an existing analyser:
 
  $ perl -MNet::Analysis -e main help
-
- $ perl -MNet::Analysis -e main TCP,v=1  dump.tcp    - basic TCP info
- $ perl -MNet::Analysis -e main HTTP,v=1 dump.tcp    - HTTP stuff
+ $ perl -MNet::Analysis -e main TCP,v=1            dump.tcp - basic TCP info
+ $ perl -MNet::Analysis -e main HTTP,v=1           dump.tcp - HTTP stuff
+ $ perl -MNet::Analysis -e main Example2,regex=img dump.tcp - run an example
 
 Writing your own analyser:
 
@@ -226,23 +226,26 @@ C<http_transaction> - a request and its response
 
 =back
 
-See the L<Net::Analysis::Listener::HTTPClientPerf> module for a listener which
-builds on the HTTP listener to create some pretty graphics.
+=head1 WHERE NEXT
 
-Or the L<Net::Analysis::Listener::Corba> module for one that builds on the
-TCP monologues to provide some profiling info on Corba requests.
+To look at how to invoke the whole thing, to plug into your own script, see the
+C<main()> method in L<Net::Analysis>.
 
-If you want to write your own listener, the Example one should get you started,
-or the HTTP one is a good one to clone.
+To see how to emit (and catch) your own events, look at
+L<Net::Analysis::Listerner::Example1>.
 
-Finally, look at the C<main()> method in L<Net::Analysis> to see how to setup
-and invoke all the listeners in your own scripts.
+For a simple example that greps TCP monologue data, see
+L<Net::Analysis::Listerner::Example2>.
+
+To look at how to write a listener that maintains session state, see
+L<Net::Analsysis::Listner::HTTP>.
 
 =head1 TODO
 
 Reliability - to date, only used by me. Exposure to weirder data needed !
 
-Performance - this suite is not suitable for real-time analysis of servers.
+Performance - this suite is not yet suitable for real-time analysis of servers,
+or for large volumes of data.
 
 UDP support
 
@@ -254,9 +257,10 @@ Move TCP reassembly to Net::LibNIDS ?
 
 =head1 SEE ALSO
 
-L<Net::Anaylsis::Listener::Example>,
+L<Net::Anaylsis::Listener::Example1>,
+L<Net::Anaylsis::Listener::Example2>,
 L<Net::Anaylsis::Listener::HTTPClientPerf>,
-L<Net::Anaylsis::Listener::Corba>, L<Net::Pcap>, L<NetPacket>.
+L<Net::Pcap>, L<NetPacket>.
 
 =head1 AUTHOR
 

@@ -2,7 +2,7 @@
 # $ make test                        # Run all test files
 # $ PERL5LIB=./lib perl t/00_stub.t  # Run just this test suite
 
-# $Id$
+# $Id: 04_Net-Analysis-Packet.t 143 2005-11-03 17:36:58Z abworrall $
 
 use strict;
 use warnings;
@@ -10,11 +10,11 @@ use Data::Dumper;
 
 use Test::More tests => 7;
 
+use Net::Analysis::Constants qw(:packetclasses);
+
 #########################
 
 BEGIN { use_ok('Net::Analysis::Packet') };
-
-use Net::Analysis::Constants qw(:packetclasses);
 
 my $data =
   { to => "1.2.3.4:80",

@@ -2,7 +2,7 @@
 # $ make test                        # Run all test files
 # $ PERL5LIB=./lib perl t/00_stub.t  # Run just this test suite
 
-# $Id$
+# $Id: 02_Net-Analysis-Time.t 143 2005-11-03 17:36:58Z abworrall $
 
 use strict;
 use warnings;

@@ -11,7 +11,6 @@ use t::TestFileIntoPackets;
 
 BEGIN { use_ok('Net::Analysis::TCPMonologue') };
 
-
 # Just check we can read packets etc.
 my (@pkts) = @{tcpfile_into_packets ("t/t1_google.tcp")};
 is (scalar(@pkts), 11, 'read in 11 packets from t1_google');

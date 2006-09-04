@@ -1,7 +1,7 @@
 package t::TestFileIntoPackets;
-# $Id: TestFileIntoPackets.pm 131 2005-10-02 17:24:31Z abworrall $
+# $Id: TestFileIntoPackets.pm 143 2005-11-03 17:36:58Z abworrall $
 
-# Provides some routines used in various tests ...
+# Wrap up some low-level routines to use in higher level tests ...
 
 use 5.008000;
 our $VERSION = '0.01';

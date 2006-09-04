@@ -6,12 +6,14 @@ use Data::Dumper;
 use Test::More tests => 7;
 use t::TestMockListener;
 
-BEGIN { use_ok('Net::Analysis::EventLoop') };
+use Net::Analysis::Dispatcher;
 
+#########################
+
+BEGIN { use_ok('Net::Analysis::EventLoop') };
 
 #### Make a dispatcher, and some mocked up listeners.
 #
-use Net::Analysis::Dispatcher;
 my ($d) = Net::Analysis::Dispatcher->new();
 isnt ($d, undef, "new dispatcher");
 

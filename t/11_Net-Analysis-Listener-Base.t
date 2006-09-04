@@ -7,11 +7,11 @@ use Data::Dumper;
 use Test::More tests => 5;
 use t::TestMockListener;
 
+use Net::Analysis::Dispatcher;
+
 #########################
 
 BEGIN { use_ok('Net::Analysis::Listener::Base'); };
-
-use Net::Analysis::Dispatcher;
 
 my ($test_event) = 'test_event';
 

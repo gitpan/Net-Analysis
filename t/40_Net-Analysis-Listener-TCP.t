@@ -5,10 +5,10 @@ use warnings;
 use strict;
 use Data::Dumper;
 
-use Test::More tests => 7;
+use Test::More tests => 2;
 use t::TestMockListener;
 use t::TestEtherealGlue;
-use Storable;
+use Storable qw(nstore retrieve);
 
 use Net::Analysis::Dispatcher;
 use Net::Analysis::EventLoop;
@@ -41,6 +41,10 @@ while (my (@call) = $mock->next_call()) {
 my (@ev) = qw(tcp_session_start tcp_monologue tcp_monologue tcp_session_end);
 is_deeply (\@found_ev, \@ev, "basic TCP events for t1_google");
 
+__END__
+# I don't like these tests. They essentially repeat the 21_TCPSession tests in
+#  a brittle fashion.
+
 #### Step through our TCP test files ...
 #
 foreach my $test_file (list_testfiles(qr/./)) {
@@ -62,7 +66,7 @@ foreach my $test_file (list_testfiles(qr/./)) {
 
     if (0) {
         # When things look OK, use this to create events.TCP compare_file
-        store (\@calls, "t/$test_file.events.TCP")
+        nstore (\@calls, "t/$test_file.events.TCP")
             || die "could not store into $test_file.events.TCP\n";
         #die Data::Dumper::Dumper (\@calls);
 

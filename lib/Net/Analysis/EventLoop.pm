@@ -41,34 +41,49 @@ sub loop_file {
     my %h = validate (@_, { filename  => { type => SCALAR } });
 
     my ($np_err);
-    my ($pfd) = Net::Pcap::open_offline ($h{filename}, \$np_err);
+    my ($pcap_t) = Net::Pcap::open_offline ($h{filename}, \$np_err);
 
     carp "event_loop('$h{filename}') failed: '$np_err'\n" if (defined $np_err);
-
-    $self->{dispatcher}->emit_event (name => 'setup');
-
-    while (1) {
-        my (%hdr);
-        my ($np_pkt) = Net::Pcap::next($pfd, \%hdr);
-        last if (!defined $np_pkt);
-
-        if ($hdr{len} != $hdr{caplen}) {
-            die "incomplete packets - use tcpdump with option '-S 2048'\n";
-        }
-
-        my $pkt = $self->_netpacket_packet_to_our_packet ($np_pkt, \%hdr);
-
-        next if (!defined $pkt);
-
-        # This will need re-jigging when we handle more than just TCP
-        $self->{dispatcher}->emit_event (name => 'tcp_packet',
-                                         args => {pkt => $pkt});
-    }
-
-    $self->{dispatcher}->emit_event (name => 'teardown');
+    $self->_event_loop ($pcap_t);
 }
 
 # }}}
+# {{{ loop_net
+
+sub loop_net {
+    my ($self) = shift;
+    my %h = validate (@_, { filter  => { type => SCALAR } });
+
+    # See 'man Net::Pcap' for more details on these settings.
+    my $promiscuity     = 0;
+    my $snaplen         = 10240; # Must be >1540, else we will miss bytes
+    my $timeout_ms      = 0;
+    my $optimize_filter = 1;
+
+    my ($np_err, $net, $mask, $filter_t);
+
+    my $dev = Net::Pcap::lookupdev(\$np_err);
+    Net::Pcap::lookupnet ($dev, \$net, \$mask, \$np_err);
+
+    my $pcap_t = Net::Pcap::open_live($dev, $snaplen, $promiscuity,
+                                      $timeout_ms, \$np_err);
+
+    if (defined $np_err) {
+        carp "loop_net(filter=>'$h{filter}') failed: '$np_err'\n";
+    }
+
+    if (Net::Pcap::compile ($pcap_t, \$filter_t, $h{filter},
+                            $optimize_filter, $net) == -1)
+    {
+        carp "unable to compile filter string '$h{filter}'\n";
+    }
+
+    Net::Pcap::setfilter ($pcap_t, $filter_t);
+    $self->_event_loop ($pcap_t);
+}
+
+# }}}
+
 # {{{ summary
 
 sub summary {
@@ -145,6 +160,34 @@ sub _netpacket_packet_to_our_packet {
 }
 
 # }}}
+# {{{ _event_loop
+
+sub _event_loop {
+    my ($self, $pcap_t) = @_;
+    $self->{dispatcher}->emit_event (name => 'setup');
+
+    while (1) {
+        my (%hdr);
+        my ($np_pkt) = Net::Pcap::next($pcap_t, \%hdr);
+        last if (!defined $np_pkt);
+
+        if ($hdr{len} != $hdr{caplen}) {
+            die "incomplete packets - use tcpdump with option '-S 2048'\n";
+        }
+
+        my $our_pkt = $self->_netpacket_packet_to_our_packet ($np_pkt, \%hdr);
+
+        next if (!defined $our_pkt);
+
+        # This will need re-jigging when we handle more than just TCP
+        $self->{dispatcher}->emit_event (name => 'tcp_packet',
+                                         args => {pkt => $our_pkt});
+    }
+
+    $self->{dispatcher}->emit_event (name => 'teardown');
+}
+
+# }}}
 
 1;
 __END__
@@ -159,12 +202,16 @@ Net::Analysis::EventLoop - generate a stream of packets
  use Net::Analysis::Dispatcher;
  use Net::Analysis::EventLoop;
 
- my ($d)  = Netpacket2::Dispatcher->new();
- my ($el) = Netpacket2::EventLoop->new (dispatcher => $d);
+ my ($d)  = Net::Analysis::Dispatcher->new();
+ my ($el) = Net::Analysis::EventLoop->new (dispatcher => $d);
 
  ... register some listener modules onto the dispatcher ...
 
+ # Now run it over a file ...
  $el->loop_file (filename => 'some.tpcdump');
+
+ # ... or try live capture (using the same filter syntax as tcpdump et al)
+ $el->loop_net (filter => 'port 80');
 
  exit 0;
 
@@ -187,12 +234,15 @@ Only TCP packets are handled
 
 =item *
 
-Only pcap capture files are processed, no live capture
+It's not designed to be fast; don't run on GB files unless you're about to go
+home. Live capture on busy servers may not be the best either; make the most
+specific filter you can, to allow Net::Pcap to reduce the number of packets
+that get to here. And watch your memory; it's likely to leak.
 
 =item *
 
-It's not designed to be fast; don't run on GB files unless you're about to go
-home.
+Live capture is not perfectly integrated; there is no way to cleanly stop
+capture at this time.
 
 =back
 

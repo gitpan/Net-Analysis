@@ -242,7 +242,7 @@ sub tcp_session_start {
 
 # Fairly pointless; we don't need to listen to this event, really.
 sub tcp_session_end {
-    my ($self, $args) = shift;
+    my ($self, $args) = @_;
     my $pkt = $args->{pkt}; # Might well be undef
     my $k   = $args->{socketpair_key};
 

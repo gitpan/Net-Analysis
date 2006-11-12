@@ -1,5 +1,6 @@
 # Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl NetPacket2-Utils.t'
+# `make test'.
+# After `make install' it should work as `perl 01_Net-Analysis-Constants.t'
 # $Id: 01_Net-Analysis-Constants.t 143 2005-11-03 17:36:58Z abworrall $
 
 use strict;

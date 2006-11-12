@@ -1,4 +1,4 @@
-Net-Analysis version 0.01
+Net-Analysis version 0.06
 =============================
 
 This set of modules will assemble TCP streams from PCap network dumps. It also
@@ -10,6 +10,7 @@ You can invoke it directly, as follows:
  $ perl -MNet::Analysis -e main help
  $ perl -MNet::Analysis -e main TCP,v=1  t/t1_google.tcp
  $ perl -MNet::Analysis -e main HTTP,v=1 t/t1_google.tcp
+ # perl -MNet::Analysis -e main TCP,v=1  "port 80"
 
 INSTALLATION
 
@@ -28,7 +29,7 @@ This module requires these other modules and libraries:
   Net::Pcap
   NetPacket
   Params::Validate
-  Test::MockObject  - not really needed, but tests will fail without it
+  Test::MockObject  - not strictly needed, but tests will fail without it
 
 COPYRIGHT AND LICENCE
 

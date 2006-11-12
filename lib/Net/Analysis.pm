@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use Data::Dumper;
 
@@ -31,11 +31,22 @@ specify it if you want to increase the verbosity.
 
 E.g.:
 
- perl -MNet::Analysis -e main TCP,v=1  dump.tcp    - basic TCP info
- perl -MNet::Analysis -e main HTTP,v=1 dump.tcp    - simple HTTP summary
+ perl -MNet::Analysis -e main TCP,v=1  dump.tcp    # basic TCP info
+ perl -MNet::Analysis -e main HTTP,v=1 dump.tcp    # simple HTTP summary
 
 Only the TCP and HTTP protocols are present in the base distribution; a few
 others are available as separate modules.
+
+EXPERIMENTAL: You can also use live network capture, if you provide a tcpdump
+compatible capture filter instead of a filename:
+
+ perl -MNet::Analysis -e main TCP,v=1  "port 80"
+
+Live capture requires a space in the final argument; else it will be assumed
+to be a file to load.
+
+Live capture has the same permissions issues as running tcpdump; you'll
+probably need to run it as root, which you do at your own risk.
 
 EO
     exit 0;
@@ -50,12 +61,10 @@ sub main {
 
     usage() if (grep {/help/} @monitors);
 
-    my ($filename) = pop (@monitors);
+    my ($target) = pop (@monitors);
 
     # Autoload TCP, else other protos won't get much to analyse
     push (@monitors, "TCP") if (! grep {/^TCP/} @monitors);
-
-    die "could not read file '$filename'\n" if (! -r $filename);
 
     my ($d)     = Net::Analysis::Dispatcher->new();
     my ($el)    = Net::Analysis::EventLoop->new (dispatcher => $d);
@@ -81,7 +90,15 @@ sub main {
             || die "$mod->new() failed\n";
     }
 
-    $el->loop_file (filename => $filename);
+    if ($target =~ / /) {
+        # Assume a filter string, for live capture
+        print "(starting live capture)\n";
+        $el->loop_net (filter => $target);
+    } else {
+        # A file to be loaded
+        die "could not read file '$target'\n" if (! -r $target);
+        $el->loop_file (filename => $target);
+    }
 }
 
 # }}}
@@ -97,12 +114,16 @@ Net::Analysis - Modules for analysing network traffic
 
 =head1 SYNOPSIS
 
-Using an existing analyser:
+Using an existing analyser on a tcpdump/wireshark capture file:
 
  $ perl -MNet::Analysis -e main help
- $ perl -MNet::Analysis -e main TCP,v=1            dump.tcp - basic TCP info
- $ perl -MNet::Analysis -e main HTTP,v=1           dump.tcp - HTTP stuff
- $ perl -MNet::Analysis -e main Example2,regex=img dump.tcp - run an example
+ $ perl -MNet::Analysis -e main TCP,v=1            dump.tcp # basic TCP info
+ $ perl -MNet::Analysis -e main HTTP,v=1           dump.tcp # HTTP stuff
+ $ perl -MNet::Analysis -e main Example2,regex=img dump.tcp # run an example
+
+Or trying live capture:
+
+ # perl -MNet::Analysis -e main TCP,v=1            "port 80"
 
 Writing your own analyser:
 
@@ -159,7 +180,8 @@ So here it is. Net::Analysis is a stack of protocol handlers that emit, and
 listen for, events.
 
 At the bottom level, a combination of L<Net::Pcap> and L<NetPacket> emit
-C<tcp_packet> events as they are read from the input file.
+C<tcp_packet> events as they are read from the input file (or live capture from
+a network device.)
 
 The TCP listener (L<Net::Analysis::Listener::TCP>) picks up these packets, and
 reconstructs TCP streams; in turn, it emits C<tcp_monologue> events. A
@@ -249,6 +271,8 @@ Reliability - to date, only used by me. Exposure to weirder data needed !
 
 Performance - this suite is not yet suitable for real-time analysis of servers,
 or for large volumes of data.
+
+More work on live capture.
 
 UDP support
 

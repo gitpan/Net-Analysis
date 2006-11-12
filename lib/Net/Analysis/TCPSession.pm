@@ -248,7 +248,8 @@ sub _update_status {
         # Open a new SYN/FIN (or discard)
         if (! exists ($h->{$pkt->{seqnum}})) {
             $self->_trace ("-- update_status: new SYN/FIN : $pkt");
-            $h->{$pkt->{seqnum}} = $pkt;
+            # Be aware that a FIN packet may also contain data ...
+            $h->{$pkt->{seqnum}+ length $pkt->{data}} = $pkt;
         } else {
             $self->_trace ("-- update_status: dup SYN/FIN : $pkt");
         }

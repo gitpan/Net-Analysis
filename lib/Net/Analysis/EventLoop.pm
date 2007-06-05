@@ -15,7 +15,7 @@ use NetPacket::UDP      qw(:ALL);
 use Net::Pcap;
 use Params::Validate qw(:all);
 
-use Net::Analysis::Packet;
+use Net::Analysis::Packet qw(:all);
 
 #### Public methods
 #
@@ -125,11 +125,28 @@ sub _netpacket_packet_to_our_packet {
             }
 
             my $tcp_obj = NetPacket::TCP->decode ($ip_obj->{data});
-            $self->{n_pkts}{"tcp_ok"}++;
+            #$self->{n_pkts}{"tcp_ok"}++;
             # $ip_obj has the IP addresses
             # $tcp_obj has the ports & TCP info, and the payload in {data}
 
             # Create a 'vendor-neutral' packet, in case we leave NetPacket
+            my $pkt = ["$ip_obj->{dest_ip}:$tcp_obj->{dest_port}",
+                       "$ip_obj->{src_ip}:$tcp_obj->{src_port}",
+                       $tcp_obj->{flags},
+                       $tcp_obj->{data},
+                       $tcp_obj->{seqnum},
+                       $tcp_obj->{acknum},
+                       $self->{pkt_number}++,
+                       # These are turned into the object $pkt->{time}
+                       $wire_hdrs->{tv_sec},
+                       $wire_hdrs->{tv_usec},
+                      ];
+            pkt_init($pkt);
+
+            return $pkt;
+
+=pod
+
             return Net::Analysis::Packet->new
               ({to    => "$ip_obj->{dest_ip}:$tcp_obj->{dest_port}",
                 from  => "$ip_obj->{src_ip}:$tcp_obj->{src_port}",
@@ -144,16 +161,18 @@ sub _netpacket_packet_to_our_packet {
                 tv_usec => $wire_hdrs->{tv_usec},
                } );
 
-        } elsif ($ip_obj->{proto} == IP_PROTO_UDP) {
+=cut
+
+        #} elsif ($ip_obj->{proto} == IP_PROTO_UDP) {
             # We should handle these at some point ...
-            $self->{n_pkts}{"SKIP_ip_proto_UDP"}++;
-        } else {
-            $self->{n_pkts}{"SKIP_ip_proto_$ip_obj->{proto}"}++;
+            #$self->{n_pkts}{"SKIP_ip_proto_UDP"}++;
+        #} else {
+            #$self->{n_pkts}{"SKIP_ip_proto_$ip_obj->{proto}"}++;
         }
 
-    } else {
+    #} else {
         # ARP ? AppleTalk ? SNMP ? IPv6 ? PPP ? Whatever, skip it
-        $self->{n_pkts}{"SKIP_eth_pkt_type_$eth_obj->{type}"}++;
+        #$self->{n_pkts}{"SKIP_eth_pkt_type_$eth_obj->{type}"}++;
     }
 
     return undef;
@@ -172,7 +191,8 @@ sub _event_loop {
         last if (!defined $np_pkt);
 
         if ($hdr{len} != $hdr{caplen}) {
-            die "incomplete packets - use tcpdump with option '-S 2048'\n";
+            warn "incomplete packet - use tcpdump with option '-S 2048'\n";
+            next;
         }
 
         my $our_pkt = $self->_netpacket_packet_to_our_packet ($np_pkt, \%hdr);

@@ -7,6 +7,7 @@ use Test::More tests => 7;
 use t::TestMockListener;
 
 use Net::Analysis::Dispatcher;
+use Net::Analysis::Packet qw(:all);
 
 #########################
 
@@ -46,31 +47,30 @@ is_deeply (\@calls, ['setup', 'teardown'], "scaffold events present");
 while (($event_name, @args) = $mock_listener_pkt->next_call()) {
     next if ($event_name ne 'tcp_packet');
     $pkt = $args[0][1]{pkt};
-    #die Data::Dumper::Dumper ($pkt);
-    my $str = "$pkt->{from}-$pkt->{to},S$pkt->{seqnum},A$pkt->{acknum}";
+    my $str = $pkt->[PKT_SLOT_FROM]."-".$pkt->[PKT_SLOT_TO].
+               ",S$pkt->[PKT_SLOT_SEQNUM],A$pkt->[PKT_SLOT_ACKNUM]";
     #print "$str\n"; # Help to generate thing below.
     push (@calls, $str);
 }
 
-# Note; 'tv' should be .792253, but the default format for floats rounds the
-#  last digit.
-
 my $dumped_packet = <<'EO';
-$VAR1 = bless( {
-                 'pkt_number' => 10,
-                 'flags' => 16,
-                 'time' => bless( {
-                                    'us' => 792253,
-                                    's' => 1096989582
-                                  }, 'Net::Analysis::Time' ),
-                 'seqnum' => 167069663,
-                 'data' => '',
-                 'socketpair_key' => '145.246.233.194:33403-216.239.59.147:80',
-                 'to' => '216.239.59.147:80',
-                 'from' => '145.246.233.194:33403',
-                 'acknum' => 2087077847,
-                 'class' => 0
-               }, 'Net::Analysis::Packet' );
+$VAR1 = [
+          '216.239.59.147:80',
+          '145.246.233.194:33403',
+          16,
+          '',
+          167069663,
+          2087077847,
+          10,
+          1096989582,
+          792253,
+          bless( {
+                   'us' => 792253,
+                   's' => 1096989582
+                 }, 'Net::Analysis::Time' ),
+          '145.246.233.194:33403-216.239.59.147:80',
+          0
+        ];
 EO
 is (Dumper ($pkt), $dumped_packet, "last packet is well formed");
 

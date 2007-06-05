@@ -10,6 +10,7 @@ use t::TestEtherealGlue;
 
 use Net::Analysis::TCPSession qw(:const); # Get the constants
 use Net::Analysis::Constants  qw(:tcpseshstates :packetclasses);
+use Net::Analysis::Packet     qw(:all);
 
 =head1 HOW TO ADD A NEW TEST FILE
 
@@ -99,7 +100,7 @@ $expected[38] = (PKT_FUTURE_DATA);
 foreach my $pkt ( @{tcpfile_into_packets ("t/t3_data_resend.tcp")} ) {
     $sesh->process_packet (packet => $pkt);
     #printf "%-90.90s %s\n", "$pkt", '';#"$sesh";
-    push (@found, $pkt->class());
+    push (@found, pkt_class($pkt));
 }
 is_deeply (\@found, \@expected, "packet classes are correct");
 

@@ -92,7 +92,19 @@ sub tcp_monologue {
     my $sesh = $self->_get_sesh ($k);
     my $d    = $mono->{data};
 
+    my ($l) = (split('\n', $d))[0];
+    my ($first_line) = '';
+    if (defined $l) {
+        $l = substr($l,0,40) if (length($l) > 40);
+        $first_line = _printable($l);
+    }
+
     our $TRACE=0;
+
+#    $TRACE = 1 if ($k eq '10.6.94.7:8080-159.206.22.101:2647');
+#    if ($k eq '10.6.94.7:8080-159.206.22.101:2647') {
+#        print "mono $k ".$mono->first_packet()->{time}."\n";
+#    }
 
     if ($d =~ m!^(get|post|head)\s+([^ ]+)(HTTP/\d.\d)?!i) {
         if (exists $sesh->{req}) {
@@ -101,23 +113,38 @@ sub tcp_monologue {
         $sesh->{req} = HTTP::Request->parse($d);
         $sesh->{req_mono} = $mono; # Careful ! Must delete this ...
 
+        my $host = $sesh->{req}->header('host') || '(nohost)';
+        my $uri = $sesh->{req}->uri() || '/noURI';
+        $self->_trace (">>!> $host$uri <<\n");
+
+
     } elsif ($d =~ m!^HTTP/\d.\d\s+(\d{3})!i) {
         my $resp = HTTP::Response->parse($d);
 
-        $self->_trace (">>>> ".$sesh->{req}->header('host').
-                       $sesh->{req}->uri()." <<\n");
+        _unchunk_response ($resp); # Should really port this to HTTP::Message
+
+        if (defined $sesh->{req}) {
+            my $host = $sesh->{req}->header('host') || '(nohost)';
+            my $uri = $sesh->{req}->uri() || '/noURI';
+            $self->_trace (">>>> $host$uri <<\n");
+        } else {
+            $self->_trace (">>>> ????? (no req found in sesh) <<\n");
+        }
 
         $self->_trace ("  << ".$resp->code().", ".
                        length($resp->content())." bytes");
 
+        my $req_mono = $sesh->{req_mono};
         my $args = {socketpair_key => $k,
                     req            => $sesh->{req},
-                    req_mono       => $sesh->{req_mono},
+                    req_mono       => $req_mono,
                     resp           => $resp,
                     resp_mono      => $mono,
-                    t_start        => $sesh->{req_mono}->t_start(),
                     t_end          => $mono->t_end()};
-        $args->{t_elapsed} = $args->{t_end} - $args->{t_start};
+        if (defined $req_mono) {
+            $args->{t_start} = $sesh->{req_mono}->t_start();
+            $args->{t_elapsed} = $args->{t_end} - $args->{t_start};
+        }
 
         $self->emit (name => 'http_transaction', args => $args);
 
@@ -125,7 +152,7 @@ sub tcp_monologue {
         delete ($sesh->{req_mono});
 
     } else {
-        carp "malformed HTTP monologue: '$d'\n";
+        $self->_trace ("malformed HTTP monologue in $k starts: $first_line\n");
     }
 }
 
@@ -137,7 +164,10 @@ sub http_transaction {
     my ($self, $args) = @_;
     return if (! $self->{v});
 
-    printf "%7.4fs : %s\n", $args->{t_elapsed}, $args->{req}->uri();
+    my $req = $args->{req};
+    my $uri = (defined $req) ? $req->uri() : "(no uri)";
+    my $t = $args->{t_elapsed} || -1.0;
+    printf "%8.4fs : %s\n", $t, $uri;
 }
 
 # }}}
@@ -192,6 +222,50 @@ sub _remove_sesh {
     my ($self, $sesh_key) = @_;
 
     return delete ($self->{sesh}{$sesh_key});
+}
+
+# }}}
+# {{{ _printable
+
+sub _printable {
+    my $raw = shift;
+    $raw =~ s {([^\x20-\x7e])} {.}g;
+    return $raw;
+}
+
+# }}}
+# {{{ _unchunk_response
+
+sub _unchunk_response {
+    my ($resp) = @_;
+
+    my $transfer_encoding = $resp->header('transfer-encoding');
+
+    return if (!$transfer_encoding);
+
+    # http://www.jmarshall.com/easy/http/#http1.1c2
+    if ($transfer_encoding eq 'chunked') {
+        my $chunked_data = $resp->content();
+        my $unchunked_data = '';
+
+        my ($chunk_size_hex, $chunk_size, $chunk);
+        while ($chunked_data) {
+            # Read chunk size. Discard chunking comments.
+            ($chunk_size_hex, $chunked_data) = ($chunked_data =~ /^([0-9a-fA-F]+)(?:;.*)?\r\n(.*)/s);
+            last if (!defined $chunk_size_hex);
+            $chunk_size = oct("0x$chunk_size_hex");
+
+            last if ($chunk_size == 0); # Sod trailing headers!
+
+            # allow for \r\n trailing the chunk
+            $chunk = substr ($chunked_data, 0, $chunk_size+2, '');
+            substr ($chunk, -2, 2, '');
+
+            $unchunked_data .= $chunk;
+        }
+
+        $resp->content($unchunked_data);
+    }
 }
 
 # }}}

@@ -13,6 +13,8 @@ use overload
 use Carp qw(carp croak confess);
 use Params::Validate qw(:all);
 
+use Net::Analysis::Packet qw(:all);
+
 # {{{ POD
 
 =head1 NAME
@@ -93,12 +95,15 @@ sub add_packet {
         $self->_init_from_first_packet($pkt);
     }
 
+    # Keep track of which packets crontibuted which bytes
+    push (@{$self->{which_pkts}}, [length($self->{data}), $pkt]);
+
     $self->{n_packets}++;
-    $self->{data} .= $pkt->{data};
+    $self->{data} .= $pkt->[PKT_SLOT_DATA];
 
     # Now update the 'last packet' time counters
-    if ($pkt->{time} > $self->{time}) {
-        $self->{time}  = $pkt->{time};
+    if (pkt_time($pkt) > $self->{time}) {
+        $self->{time}  = pkt_time($pkt);
     }
 
     #print "Adding packet $pkt to $self\n";
@@ -212,6 +217,37 @@ sub first_packet {
 }
 
 # }}}
+# {{{ which_pkt
+
+=head2 which_pkt ($byte_offset)
+
+Given a byte offset from within the monologue, return the packet which
+contributed the byte at that offset, or undef. Bytes are counted from zero.
+
+This can be useful to retrieve timestamps of areas inside long-lived
+monologues.
+
+=cut
+
+sub which_pkt {
+    my ($self, $n) = @_;
+
+    return undef if ($n < 0 || $n >= CORE::length($self->{data}));
+
+    my $prev_pkt;
+    for my $row (@{ $self->{which_pkts} }) {
+        if ($row->[0] > $n) {
+            # This row contains bytes ahead of $n; previous is what we want
+            die "which_pkt confusion" if (!defined $prev_pkt);
+            return $prev_pkt;
+        }
+        $prev_pkt = $row->[1];
+    }
+
+    return $prev_pkt;
+}
+
+# }}}
 
 # {{{ as_string
 
@@ -245,14 +281,16 @@ sub _init_from_first_packet {
     $self->{data}      = '';
 
     # Initialise the monologue
-    for (qw(to from)) {
-        $self->{$_} = $pkt->{$_};
-    }
-    $self->{time} = $pkt->{time} + 0; # Make a cloned copy
+    $self->{to}   = $pkt->[PKT_SLOT_TO];
+    $self->{from} = $pkt->[PKT_SLOT_FROM];
+    $self->{time} = pkt_time($pkt) + 0; # Make a cloned copy
 
     # Keep copies of the first ever time, and the packet itself
     $self->{t_start}  = $self->{time};
     $self->{first_packet} = $pkt;
+
+    # Keep track of which packets contributed which bytes
+    $self->{which_pkts} = [];
 }
 
 # }}}

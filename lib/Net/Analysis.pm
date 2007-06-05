@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.06';
+our $VERSION = '0.4.0';
 
 use Data::Dumper;
 
@@ -267,12 +267,9 @@ L<Net::Analysis::Listener::HTTP>.
 
 =head1 TODO
 
-Reliability - to date, only used by me. Exposure to weirder data needed !
+Performance - this may not be fast enough to handle busy servers in real time.
 
-Performance - this suite is not yet suitable for real-time analysis of servers,
-or for large volumes of data.
-
-More work on live capture.
+More work on live capture, this is still experimental.
 
 UDP support
 

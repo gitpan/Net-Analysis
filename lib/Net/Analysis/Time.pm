@@ -79,6 +79,8 @@ sub new {
         ($s, $us) = _breakup_float ($s);
     }
 
+    $us = 0 if (!defined $us);
+
     return bless ({'s'=>$s, us=>$us}, $class);
 }
 

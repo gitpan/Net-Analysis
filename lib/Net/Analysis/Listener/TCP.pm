@@ -11,6 +11,7 @@ use Carp qw(carp croak confess);
 use Params::Validate qw(:all);
 
 use Net::Analysis::Constants qw(:tcpflags);
+use Net::Analysis::Packet qw(:all);
 use Net::Analysis::TCPSession qw(:const);
 
 use base qw(Net::Analysis::Listener::Base);
@@ -177,18 +178,18 @@ sub tcp_packet {
     my ($pkt) = $args->{pkt};
 
     # Get the TCP session key from the packet.
-    my $k = $pkt->{socketpair_key};
+    my $k = $pkt->[PKT_SLOT_SOCKETPAIR_KEY];
 
     # Establish session object
     my $sesh = $self->_get_session_object($k);
 
     # Feed it packet
     my $ret = $sesh->process_packet(packet => $pkt);
-    my $deb = "  = ". (($self->{v} & 0x08) ? $pkt->as_string(1) : "$pkt");
+    #my $deb = "  = ". (($self->{v} & 0x08) ? $pkt->as_string(1) : "$pkt");
 
     # Maybe emit events ...
     if ($ret == PKT_ESTABLISHED_SESSION) {
-        $self->trace($deb) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
         $self->emit (name => 'tcp_session_start',
                      args => {socketpair_key => $k,
                               pkt => $pkt});
@@ -198,10 +199,10 @@ sub tcp_packet {
                      args => {socketpair_key => $k,
                               monologue      => $sesh->previous_monologue()});
 
-        $self->trace($deb) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
 
     } elsif ($ret == PKT_TERMINATED_SESSION) {
-        $self->trace($deb) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
 
         # Clear out any remaining data
         if ($sesh->has_current_monologue()) {
@@ -217,7 +218,7 @@ sub tcp_packet {
         $self->_close_down_session ($k);
 
     } else {
-        $self->trace($deb) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
     }
 }
 
@@ -232,8 +233,10 @@ sub tcp_session_start {
     my $k   = $args->{socketpair_key};
 
     if ($self->{v} & 0x04) {
-        my $t = $pkt->{time}->as_string('time');
-        $self->trace ("  ====[$t] tcp session start [$pkt->{from} -> $pkt->{to}]");
+        my $t = pkt_time($pkt)->as_string('time');
+        $self->trace ("  ====[$t] tcp session start [".
+                      $pkt->[PKT_SLOT_FROM]." -> ".
+                      $pkt->[PKT_SLOT_TO]."]");
     }
 }
 
@@ -246,8 +249,10 @@ sub tcp_session_end {
     my $pkt = $args->{pkt}; # Might well be undef
     my $k   = $args->{socketpair_key};
 
-    my $t = $pkt ? $pkt->{time}->as_string('time') : '--:--:--.------';
-    $self->trace("  ====[$t] tcp session end [$k]") if ($self->{v} & 0x04);
+    if ($self->{v} & 0x04) {
+        my $t = $pkt ? pkt_time($pkt)->as_string('time') : '--:--:--.------';
+        $self->trace("  ====[$t] tcp session end [$k]");
+    }
 }
 
 # }}}
@@ -321,6 +326,17 @@ sub _close_down_session {
     # XXXX Implement 2xMLS TIME_WAIT thing, ideally ...
 
     delete ($self->{active_tcp_sessions}{$k});
+}
+
+# }}}
+# {{{ _trace_pkt
+
+sub _trace_pkt {
+    my ($self, $pkt) = @_;
+    my $deb = "  = ". (($self->{v} & 0x08)
+                       ? pkt_as_string($pkt,1)
+                       : pkt_as_string($pkt));
+    $self->trace($deb);
 }
 
 # }}}

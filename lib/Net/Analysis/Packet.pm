@@ -1,112 +1,141 @@
 package Net::Analysis::Packet;
-# $Id: Packet.pm 136 2005-10-21 00:14:54Z abworrall $
 
 use 5.008000;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 use strict;
 use warnings;
-use Carp qw(carp);
+use Carp qw(carp cluck);
 use POSIX qw(strftime);
-use overload
-    q("") => sub { $_[0]->as_string() },
-    'eq'  => sub { return "$_[0]" eq "$_[1]" }; # Needed for Test::is_deeply
+
+# {{{ Exported boilerplate
+
+require Exporter;
+
+our @ISA = qw(Exporter);
+
+our @PKT_SLOT_CONSTS = qw(PKT_SLOT_TO
+                          PKT_SLOT_FROM
+                          PKT_SLOT_FLAGS
+                          PKT_SLOT_DATA
+                          PKT_SLOT_SEQNUM
+                          PKT_SLOT_ACKNUM
+                          PKT_SLOT_PKT_NUMBER
+                          PKT_SLOT_TV_SEC
+                          PKT_SLOT_TV_USEC
+                          PKT_SLOT_SOCKETPAIR_KEY
+                          PKT_SLOT_CLASS
+                          );
+
+our @PKT_FUNCTIONS = qw(pkt_time pkt_init pkt_as_string pkt_class);
+
+our @EXPORT    = ();
+our @EXPORT_OK = (@PKT_SLOT_CONSTS, @PKT_FUNCTIONS);
+our %EXPORT_TAGS = (all      => [ @EXPORT, @EXPORT_OK ],
+                    pktslots => [ @PKT_SLOT_CONSTS ],
+                    func     => [ @PKT_FUNCTIONS],
+                   );
+
+# }}}
 
 use Net::Analysis::Constants qw(:tcpflags :packetclasses);
 use Net::Analysis::Time;
 
+use Data::Dumper;
+
+use constant {
+    PKT_SLOT_TO              => 0,
+    PKT_SLOT_FROM            => 1,
+    PKT_SLOT_FLAGS           => 2,
+    PKT_SLOT_DATA            => 3,
+    PKT_SLOT_SEQNUM          => 4,
+    PKT_SLOT_ACKNUM          => 5,
+    PKT_SLOT_PKT_NUMBER      => 6,
+    PKT_SLOT_TV_SEC          => 7,
+    PKT_SLOT_TV_USEC         => 8,
+    PKT_SLOT_TIME            => 9,
+    PKT_SLOT_SOCKETPAIR_KEY  => 10,
+    PKT_SLOT_CLASS           => 11,
+};
+
 #### Public methods
 #
-# {{{ new
+# {{{ pkt_time
 
-sub new {
-    my ($class, $pkt_data) = @_;
-
-    if (!defined $pkt_data) {
-        carp ('Net::Analysis::Packet->new($pkt_data) not given $pkt_data!');
-        return undef;
-    }
-
-    my %h = %$pkt_data;
-
-    my ($self)  = bless (\%h, $class);
-
-    # Setup a time object
-    if (!exists $self->{time}) {
-        if (exists $self->{tv}) {
-            $self->{time} = Net::Analysis::Time->new ($self->{tv});
-            delete ($self->{tv});
-
-        } elsif (exists $self->{tv_sec} && exists $self->{tv_usec}) {
-            $self->{time} = Net::Analysis::Time->new ($self->{tv_sec},
-                                                      $self->{tv_usec});
-            delete ($self->{tv_sec});
-            delete ($self->{tv_usec});
-
-        } else {
-            carp "Net::Analysis::Packet->new(); no time, tv, or tv_sec/tv_usec\n";
-            $self->{time} = Net::Analysis::Time->new (0, 666);
-        }
-    }
-    $self->{socketpair_key} = join('-', sort ($self->{from}, $self->{to}));
-
-    $self->{class} = PKT_NOCLASS;
-
-    return $self;
+sub pkt_time {
+    my $pkt = shift;
+    return $pkt->[PKT_SLOT_TIME];
 }
 
 # }}}
+# {{{ pkt_init
 
-# {{{ class
+sub pkt_init {
+    my $pkt = shift;
+    $pkt->[PKT_SLOT_CLASS] = PKT_NOCLASS;
+    $pkt->[PKT_SLOT_SOCKETPAIR_KEY] = join('-', sort
+                                           ($pkt->[PKT_SLOT_FROM],
+                                            $pkt->[PKT_SLOT_TO]));
 
-sub class {
+    $pkt->[PKT_SLOT_TIME] = Net::Analysis::Time->new
+        ($pkt->[PKT_SLOT_TV_SEC], $pkt->[PKT_SLOT_TV_USEC]);
+
+    return $pkt;
+}
+
+# }}}
+# {{{ pkt_class
+
+sub pkt_class {
     my ($self, $new) = @_;
 
-    $self->{class} = $new if (defined $new);
+    $self->[PKT_SLOT_CLASS] = $new if (defined $new);
 
-    return $self->{class};
+    return $self->[PKT_SLOT_CLASS];
 }
 
 # }}}
-# {{{ socketpair
+# {{{ pkt_as_string
 
-sub socketpair { return $_[0]->{socketpair_key} };
-
-# }}}
-# {{{ as_string
-
-sub as_string {
+sub pkt_as_string {
     my ($self, $v) = @_;
 
-    carp "bad pkt !\n" if (!exists $self->{pkt_number});
+    #cluck ("I was invoked :(");
+    #exit;
+
+    carp "bad pkt !\n" if (!exists $self->[PKT_SLOT_PKT_NUMBER]);
 
     my $flags = '';
-    $flags .= 'F' if ($self->{flags} & FIN);
-    $flags .= 'S' if ($self->{flags} & SYN);
-    $flags .= 'A' if ($self->{flags} & ACK);
-    $flags .= 'R' if ($self->{flags} & RST);
-    $flags .= 'P' if ($self->{flags} & PSH);
-    $flags .= 'U' if ($self->{flags} & URG);
+    $flags .= 'F' if ($self->[PKT_SLOT_FLAGS] & FIN);
+    $flags .= 'S' if ($self->[PKT_SLOT_FLAGS] & SYN);
+    $flags .= 'A' if ($self->[PKT_SLOT_FLAGS] & ACK);
+    $flags .= 'R' if ($self->[PKT_SLOT_FLAGS] & RST);
+    $flags .= 'P' if ($self->[PKT_SLOT_FLAGS] & PSH);
+    $flags .= 'U' if ($self->[PKT_SLOT_FLAGS] & URG);
     $flags .= '.' if ($flags eq '');
 
-    my $time = ($self->{time}) ? $self->{time}->as_string('time') : "--";
+    my $p_time = pkt_time($self);
+
+    my $time = ($p_time) ? $p_time->as_string('time') : "--";
 
     my $str = sprintf ("(% 3d $time %s-%s) ",
-                       $self->{pkt_number}, $self->{from}, $self->{to});
+                       $self->[PKT_SLOT_PKT_NUMBER],
+                       $self->[PKT_SLOT_FROM],
+                       $self->[PKT_SLOT_TO]);
 
     # Show which class we have assigned to the packet
     $str .= {PKT_NOCLASS,     '-',
              PKT_NONDATA,     '_',
              PKT_DATA,        '*',
              PKT_DUP_DATA,    'p',
-             PKT_FUTURE_DATA, 'f'}->{$self->{class}} || '?';
+             PKT_FUTURE_DATA, 'f'}->{$self->[PKT_SLOT_CLASS]} || '?';
 
     $str .= sprintf ("%-6s ", "$flags");
 
-    $str .= "SEQ:$self->{seqnum} ACK:$self->{acknum} ".
-      length($self->{data})."b";
+    $str .= "SEQ:".$self->[PKT_SLOT_SEQNUM]." ACK:".$self->[PKT_SLOT_ACKNUM].
+        " ".length($self->[PKT_SLOT_DATA])."b";
 
     if ($v) { # Get all verbose
-        $str .= "\n"._hex_dump ($self->{data});
+        $str .= "\n"._hex_dump ($self->[PKT_SLOT_DATA]);
     }
 
     return $str;
@@ -148,7 +177,6 @@ sub safe_raw_line {
 
 # }}}
 
-
 1;
 __END__
 # {{{ POD
@@ -159,32 +187,43 @@ Net::Analysis::Packet - wrapper for our own view of a packet.
 
 =head1 SYNOPSIS
 
-  use Net::Analysis::Packet;
+  use Net::Analysis::Packet qw(:pktslots :func);
 
-  my $p = Net::Analysis::Packet ( {...} ); # See Net::Analysis::EventLoop
+  my $p = [...]; # See code in Net::Analysis::EventLoop
+  pkt_init($p);
 
-  print "My packet:-\n$p";
-  print "Pretty hex dump of payload:-\n".$p->as_string('verbose');
+  my $packet_data = $p->[PKT_SLOT_DATA];
+
+  print "My packet:-\n".pkt_as_string($p);
+  print "Pretty hex dump of payload:-\n".pkt_as_string($p,'verbose');
+
+  my $net_analysis_time = pkt_time($pkt);
 
 =head1 DESCRIPTION
 
 Internal module for abstracting the underlying packet representation.
 
-It is basically a big hash, containing the following fields:
+It is just an array, not an object; there is no OO magic at all. You can use
+the following constants to exctract these fields from the array:
 
- to         - ip:port (e.g. "192.0.0.200:8080")
- from       - ip:port (e.g. "10.0.0.1:13211")
- flags      - TCP flags (see Net::Analysis::Constants)
- data       - packet payload (may be empty)
- seqnum     - the SEQ number of the packet
- acknum     - the ACK number of the packet
- pkt_number - packets are numbered from zero as they're read in
+ PKT_SLOT_TO         - ip:port (e.g. "192.0.0.200:8080")
+ PKT_SLOT_FROM       - ip:port (e.g. "10.0.0.1:13211")
+ PKT_SLOT_FLAGS      - byte of TCP flags (see Net::Analysis::Constants)
+ PKT_SLOT_DATA       - packet payload (may be empty)
+ PKT_SLOT_SEQNUM     - the SEQ number of the packet
+ PKT_SLOT_ACKNUM     - the ACK number of the packet
+ PKT_SLOT_PKT_NUMBER - packets are numbered from zero as we read them in
+ PKT_SLOT_SOCKETPAIR_KEY -  the unique key for the TCP session
 
- time       - a Net::Analysis::Time object
+=head1 FUNCTIONS
 
-=head2 EXPORT
+=head2 pkt_init ($p)
 
-None by default.
+Does some setup on the bare data passed in; mostly creating a time object.
+
+=head2 pkt_time ($p)
+
+Returns the Net::Analysis::Time object associated with the packet.
 
 =head1 SEE ALSO
 
@@ -204,7 +243,6 @@ Copyright (C) 2004 by Adam B. Worrall
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.5 or,
 at your option, any later version of Perl 5 you may have available.
-
 
 =cut
 

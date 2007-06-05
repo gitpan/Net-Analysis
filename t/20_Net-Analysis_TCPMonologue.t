@@ -4,7 +4,7 @@
 use strict;
 use Data::Dumper;
 
-use Test::More tests => 14;
+use Test::More tests => 20;
 use t::TestFileIntoPackets;
 
 #########################
@@ -36,10 +36,17 @@ is (sprintf ("%017.6f", $mono->t_start()),  '1096989582.739317', 't_start');
 is (sprintf ("%017.6f", $mono->t_end()),    '1096989582.739386', 't_end');
 is (sprintf ("%017.6f", $mono->t_elapsed()),'0000000000.000069', 't_elapsed');
 
-
 # Misc observers
 is ($mono->n_packets(),    2, 'n_packets');
 is ($mono->length(),    2245, 'length');
 is_deeply ($mono->first_packet(), $pkts[4], 'first_packet');
+
+# Check out which_pkt retrieval
+is ($mono->which_pkt(-20), undef,                'which_pkt neg value');
+is_deeply ($mono->which_pkt   (0), $pkts[4],     'byte    0 -> pkt 4');
+is_deeply ($mono->which_pkt(1367), $pkts[4],     'byte 1367 -> pkt 6');
+is_deeply ($mono->which_pkt(1368), $pkts[6],     'byte 1368 -> pkt 6');
+is_deeply ($mono->which_pkt(2000), $pkts[6],     'byte 2000 -> pkt 6');
+is ($mono->which_pkt($mono->length()+10), undef, 'which_pkt too big value');
 
 __DATA__

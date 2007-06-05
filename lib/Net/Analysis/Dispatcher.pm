@@ -125,11 +125,15 @@ C<event_name>.
 =cut
 
 sub emit_event {
-    my ($self) = shift;
+    my $self = shift;
 
-    my %h = validate (@_, { name => { regex => qr/^[a-z][a-z0-9_]+$/ },
-                            args => { default => {} },
-                          });
+    my %h = @_;
+
+    $h{args} ||= {};
+
+#    my %h = validate (@_, { name => { regex => qr/^[a-z][a-z0-9_]+$/ },
+#                            args => { default => {} },
+#                          });
 
     # If we have any listeners that wanted a special place in the queue, then
     #  give it to them. This stuff will only trigger on the very first event.

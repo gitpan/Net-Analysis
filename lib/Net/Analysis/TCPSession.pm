@@ -31,6 +31,7 @@ use Carp qw(carp croak confess);
 use Params::Validate qw(:all);
 
 use Net::Analysis::Constants qw(:packetclasses);
+use Net::Analysis::Packet qw(:all);
 use Net::Analysis::TCPMonologue;
 
 # {{{ Constants & globals
@@ -75,7 +76,8 @@ sub new {
 sub process_packet {
     my $self = shift;
 
-    my %h = validate (@_, {packet  => { type  => HASHREF } });
+    my %h = @_;
+#    my %h = validate (@_, {packet  => { type  => HASHREF } });
 
     $self->_clear_status_change();
 
@@ -83,13 +85,13 @@ sub process_packet {
     $self->_update_status ($h{packet});
 
     # Does this packet have data ? If not, skip it
-    if (! length($h{packet}{data})) {
+    if (! length($h{packet}[PKT_SLOT_DATA])) {
         #$self->_trace ("  -- no data in packet, skipping\n");
-        $h{packet}->class (PKT_NONDATA);
+        pkt_class ($h{packet}, PKT_NONDATA);
         return $self->_determine_status_change();
     }
 
-    $self->_trace ("---- new pkt: $h{packet}");
+    #$self->_trace ("---- new pkt: $h{packet}");
 
     # Orient ourselves, if necessary
     $self->_setup_session ($h{packet}) if (! exists $self->{to});
@@ -102,7 +104,7 @@ sub process_packet {
 
     # If we can, process any packets we've got stored in this dir
     # XXXX But what if these packets also cause state changes ??
-    $self->_process_stored_packets($h{packet}{from});
+    $self->_process_stored_packets($h{packet}[PKT_SLOT_FROM]);
 
     return $ret;
 }
@@ -220,46 +222,47 @@ sub _update_status {
 
     # Basic counters
     $self->{n_pkts}++;
-    $self->{bytes_from}{$pkt->{from}} += length($pkt->{data});
+    $self->{bytes_from}{$pkt->[PKT_SLOT_FROM]} +=
+        length($pkt->[PKT_SLOT_DATA]);
 
     #local $TRACE = 1;
 
     # This hash maps sequence numbers to unACKed SYN/FIN packets
     my ($h) = $self->{_syn_fins};
 
-    if ($pkt->{flags} & ACK) {
+    if ($pkt->[PKT_SLOT_FLAGS] & ACK) {
         # Does it ACK an open SYN or FIN ? Change state if necessary
-        my $acked_pkt = delete ($h->{$pkt->{acknum} - 1});
+        my $acked_pkt = delete ($h->{$pkt->[PKT_SLOT_ACKNUM] - 1});
         if (defined $acked_pkt) {
-            $self->_trace ("-- update_status: good ACK    : $pkt");
-            $self->_trace (" - (acked thing was           : $acked_pkt)");
+            #$self->_trace ("-- update_status: good ACK    : $pkt");
+            #$self->_trace (" - (acked thing was           : $acked_pkt)");
 
-            if ($acked_pkt->{flags} & SYN) {
+            if ($acked_pkt->[PKT_SLOT_FLAGS] & SYN) {
                 if (++$h->{acked_syns} < 2) { $self->status (SESH_CONNECTING) }
                 else                        { $self->status (SESH_ESTABLISHED)}
-            } elsif ($acked_pkt->{flags} & FIN) {
+            } elsif ($acked_pkt->[PKT_SLOT_FLAGS] & FIN) {
                 if (++$h->{acked_fins} < 2) { $self->status (SESH_HALF_CLOSED)}
                 else                        { $self->status (SESH_CLOSED)     }
             }
         }
     }
 
-    if ($pkt->{flags} & (SYN|FIN)) {
+    if ($pkt->[PKT_SLOT_FLAGS] & (SYN|FIN)) {
         # Open a new SYN/FIN (or discard)
-        if (! exists ($h->{$pkt->{seqnum}})) {
-            $self->_trace ("-- update_status: new SYN/FIN : $pkt");
+        if (! exists ($h->{$pkt->[PKT_SLOT_SEQNUM]})) {
+            #$self->_trace ("-- update_status: new SYN/FIN : $pkt");
             # Be aware that a FIN packet may also contain data ...
-            $h->{$pkt->{seqnum}+ length $pkt->{data}} = $pkt;
+            $h->{$pkt->[PKT_SLOT_SEQNUM]+ length $pkt->[PKT_SLOT_DATA]} = $pkt;
         } else {
-            $self->_trace ("-- update_status: dup SYN/FIN : $pkt");
+            #$self->_trace ("-- update_status: dup SYN/FIN : $pkt");
         }
     }
 
     # If we are currently undefined, we can have a good guess of where
     #  we should be based on this packet
     if ($self->status() eq SESH_UNDEFINED) {
-        if (length($pkt->{data}))   { $self->status(SESH_ESTABLISHED) }
-        elsif ($pkt->{flags} & SYN) { $self->status(SESH_CONNECTING)  }
+        if (length($pkt->[PKT_SLOT_DATA]))   {$self->status(SESH_ESTABLISHED)}
+        elsif ($pkt->[PKT_SLOT_FLAGS] & SYN) {$self->status(SESH_CONNECTING) }
     }
 }
 
@@ -270,13 +273,16 @@ sub _setup_session {
     my ($self, $pkt) = @_;
 
     # Use this packet pick a to/from orientation for the rest of the session.
-    $self->{$_} = $pkt->{$_} for (qw(to from tv_usec tv_sec));
+    $self->{to}      = $pkt->[PKT_SLOT_TO];
+    $self->{from}    = $pkt->[PKT_SLOT_FROM];
+    $self->{tv_usec} = $pkt->[PKT_SLOT_TV_USEC];
+    $self->{tv_sec}  = $pkt->[PKT_SLOT_TV_SEC];
 
     my ($from,$to) = ($self->{from}, $self->{to});
 
     # Initialise the TCP stream sequence numbers in both directions
-    $self->{$from}{seq} = $pkt->{seqnum};
-    $self->{$to}  {seq} = $pkt->{acknum}; # Assume the ack is relevent
+    $self->{$from}{seq} = $pkt->[PKT_SLOT_SEQNUM];
+    $self->{$to}  {seq} = $pkt->[PKT_SLOT_ACKNUM]; # Assume the ack is relevent
 
     # Now set things up so that we are 'expecting' this packet.
     # Pretend we are already going in this diretion, to avoid FLIPPED_DIR
@@ -293,10 +299,10 @@ sub _flip_if_necessary {
     my ($self, $pkt) = @_;
 
     # New packet same direction as the old one ? No change !
-    return if ($pkt->{from} eq $self->{last_from});
+    return if ($pkt->[PKT_SLOT_FROM] eq $self->{last_from});
 
     # Else, all change !!
-    $self->_trace ("  -- packet FLIPS direction !\n");
+    #$self->_trace ("  -- packet FLIPS direction !\n");
 
     # Store the now finished monologue for later retrieval
     $self->{previous_monologue} = $self->{current_monologue};
@@ -304,7 +310,7 @@ sub _flip_if_necessary {
     # New monologue
     $self->{current_monologue} = Net::Analysis::TCPMonologue->new();
 
-    $self->{last_from} = $pkt->{from};
+    $self->{last_from} = $pkt->[PKT_SLOT_FROM];
 
     # Make a note, so we know what this packet did
     $self->_set_flip_status();
@@ -315,13 +321,13 @@ sub _flip_if_necessary {
 
 sub _consume_data_packet {
     my ($self, $pkt) = @_;
-    my $pf = $pkt->{from};
+    my $pf = $pkt->[PKT_SLOT_FROM];
     #our $TRACE = 1;
 
     # Check to see where packet slots into the TCP datastream.
-    if ($pkt->{seqnum} == $self->{$pf}{seq}) {
-        $self->_trace ("  -- pkt seq agrees with what we expected (inc by ".
-                       length($pkt->{data}).")");
+    if ($pkt->[PKT_SLOT_SEQNUM] == $self->{$pf}{seq}) {
+        #$self->_trace ("  -- pkt seq agrees with what we expected (inc by ".
+        #               length($pkt->{data}).")");
 
         # If traffic has changed direction, store monologue.
         $self->_flip_if_necessary($pkt);
@@ -330,25 +336,23 @@ sub _consume_data_packet {
         $self->{current_monologue}->add_packet ($pkt);
 
         # Update the seq counter - we've eaten this data now
-        $self->{$pf}{seq} += length($pkt->{data});
+        $self->{$pf}{seq} += length($pkt->[PKT_SLOT_DATA]);
 
         # We might be re-processing a stored packet, in which preserve its
         #  value
-        $pkt->class (PKT_DATA) if ($pkt->class() == PKT_NOCLASS);
+        pkt_class ($pkt, PKT_DATA) if (pkt_class($pkt) == PKT_NOCLASS);
 
-    } elsif ($pkt->{seqnum} > $self->{$pf}{seq}) {
-        $self->_trace ("  -- * packet is ".($pkt->{seqnum}-$self->{$pf}{seq}).
-                       " bytes into the future; storing for later");
+    } elsif ($pkt->[PKT_SLOT_SEQNUM] > $self->{$pf}{seq}) {
+        #$self->_trace ("  -- * packet is ".($pkt->{seqnum}-$self->{$pf}{seq}).
+        #               " bytes into the future; storing for later");
         $self->_store_future_packet ($pkt);
 
-        $pkt->class (PKT_FUTURE_DATA);
+        pkt_class ($pkt, PKT_FUTURE_DATA);
 
     } else {
-        $self->_trace ("  -- ** packet is ".($self->{$pf}{seq}-$pkt->{seqnum}).
-                       " bytes into the past; discarding");
-        $pkt->class (PKT_DUP_DATA);
-        # This warning should probably be deleted
-        warn "$pkt\npacket from the past! next seqnum: $self->{$pf}{seq}, vs. $pkt->{seqnum}\n";
+        #$self->_trace ("  -- ** packet is ".($self->{$pf}{seq}-$pkt->{seqnum}).
+        #               " bytes into the past; discarding");
+        pkt_class ($pkt, PKT_DUP_DATA);
     }
 }
 
@@ -359,7 +363,7 @@ sub _consume_data_packet {
 sub _store_future_packet {
     my ($self, $pkt) = @_;
 
-    $self->{future_packets}{$pkt->{from}}{$pkt->{seqnum}} = $pkt;
+    $self->{future_packets}{$pkt->[PKT_SLOT_FROM]}{$pkt->[PKT_SLOT_SEQNUM]} = $pkt;
 }
 
 # }}}
@@ -375,8 +379,8 @@ sub _process_stored_packets {
         my $pkt = delete $self->{future_packets}{$dir}{$self->{$dir}{seq}};
         last if (!defined $pkt);
 
-        $self->_trace ("  -- found future bytes: $self->{$dir}{seq}+".
-                       length($pkt->{data}));
+        #$self->_trace ("  -- found future bytes: $self->{$dir}{seq}+".
+        #               length($pkt->{data}));
 
         # Ignore return value; can't flip, since $dir is fixed
         $self->_consume_data_packet ($pkt);

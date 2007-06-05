@@ -186,6 +186,66 @@ sub validate_configuration { my $self=shift; return {@_}; }
 #sub teardown {}
 
 
+# Utilities for viewing binary data
+# {{{ sanitize_raw
+
+sub sanitize_raw {
+    my ($self, $raw, $max, $append_binary) = @_;
+    $raw = substr($raw,0,$max) if ($max && length($raw) > $max);
+
+    my $s = $raw;
+    $s =~ s {([^\x20-\x7e])} {.}g;
+    $s .= " ".$self->map2bin($raw) if ($append_binary);
+    return "{$s}";
+}
+
+# }}}
+# {{{ map2bin
+
+sub map2bin {
+    my ($self,$raw) = @_;
+    my $bin = unpack("B*", $raw);
+    $bin =~ s{([^ ]{8})(?! )}{ $1}g;
+    $bin =~ s{(^ *| *$)}{}g;
+    return "<$bin>";
+}
+
+# }}}
+# {{{ map2hex
+
+sub map2hex {
+    my ($self,$raw, $prefix, $append_binary) = @_;
+
+    $prefix ||= '';
+    my $hex = unpack("H*", $raw);
+
+    $hex =~ s {([0-9a-f]{2}(?! ))}     { $1}mg;
+
+    $hex =~ s {(( [0-9a-f]{2}){16})}
+              {"$1   ".$self->hex2saferaw($1,$append_binary)."\n"}emg;
+
+    # Unfinished last line
+    $hex =~ s {(( [0-9a-f]{2})*)$}
+              {sprintf("%-47.47s    ",$1) .$self->hex2saferaw($1,$append_binary)."\n"}es;
+
+    chomp($hex);
+
+    $hex =~ s/^/$prefix/msg;
+
+    return $hex."\n";
+}
+
+sub hex2saferaw {
+    my ($self, $hex, $append_binary) = @_;
+
+    $hex =~ s {\s+} {}mg;
+    my $raw = pack("H*", $hex);
+
+    return $self->sanitize_raw($raw,undef,$append_binary);
+}
+
+# }}}
+
 1;
 __END__
 # {{{ POD

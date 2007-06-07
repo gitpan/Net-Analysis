@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.4.0';
+our $VERSION = '0.40';
 
 use Data::Dumper;
 

@@ -5,6 +5,7 @@ use strict;
 use Data::Dumper;
 
 use Test::More tests => 6;
+
 use t::TestMockListener;
 
 #########################

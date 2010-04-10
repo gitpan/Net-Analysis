@@ -128,9 +128,13 @@ sub emit_event {
     my $self = shift;
 
     my %h = @_;
-
     $h{args} ||= {};
 
+    if ($self->{_i_am_invoking}) {
+#        warn "Argh, circular mayhem ($h{name})\n"; exit;
+    }
+
+## Adverse performance impacts, so commented out
 #    my %h = validate (@_, { name => { regex => qr/^[a-z][a-z0-9_]+$/ },
 #                            args => { default => {} },
 #                          });
@@ -144,17 +148,7 @@ sub emit_event {
         push (@{$self->{listeners}}, delete ($self->{pos}{last}));
     }
 
-    # Memoise this iteration & 'can' call ? Results won't change !
-    foreach my $l (@{$self->{listeners}}) {
-        my $method = $h{name};
-        if ($l->can($method)) {
-            eval {
-                $l->$method($h{args});
-            }; if ($@) {
-                carp ("Listener '$l' die()d on method $h{name}:\n$@");
-            }
-        }
-    }
+    $self->_invoke_callbacks (\%h);
 }
 
 # }}}
@@ -171,6 +165,32 @@ sub as_string {
 }
 
 # }}}
+
+# {{{ _invoke_callbacks
+
+sub _invoke_callbacks {
+    my $self = shift;
+    my ($h) = @_;
+
+    $self->{_i_am_invoking} = 1;
+
+    # Memoise this iteration & 'can' call ? Results won't change !
+    foreach my $l (@{$self->{listeners}}) {
+        my $method = $h->{name};
+        if ($l->can($method)) {
+            eval {
+                $l->$method($h->{args});
+            }; if ($@) {
+                carp ("Listener '$l' die()d on method $h->{name}:\n$@");
+            }
+        }
+    }
+
+    delete ($self->{_i_am_invoking});
+}
+
+# }}}
+
 
 1;
 __END__
@@ -197,6 +217,62 @@ it under the same terms as Perl itself, either Perl version 5.8.5 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+# }}}
+# {{{ emit_event
+
+=head2 emit_event (name => 'event_name', args => $hash)
+
+The name must be a valid Perl function name. By convention, it should start
+with the name of the module that is emitting the event (e.g.
+C<http_transaction>).
+
+Where your code is emitting events, it must must document the args in detail,
+so that listeners will know what to do with them.
+
+This method runs through the listener list, and if appropriate, invokes the
+listening method for each listener.
+
+A listener gets the event if it has a method which has the same name as the
+C<event_name>.
+
+=cut
+
+sub emit_event {
+    my $self = shift;
+
+    my %h = @_;
+
+    $h{args} ||= {};
+
+#    my %h = validate (@_, { name => { regex => qr/^[a-z][a-z0-9_]+$/ },
+#                            args => { default => {} },
+#                          });
+
+    # If we have any listeners that wanted a special place in the queue, then
+    #  give it to them. This stuff will only trigger on the very first event.
+    if (exists $self->{pos}{first}) {
+        unshift (@{$self->{listeners}}, delete ($self->{pos}{first}));
+    }
+    if (exists $self->{pos}{last}) {
+        push (@{$self->{listeners}}, delete ($self->{pos}{last}));
+    }
+
+    print " ]]]] $h{name}\n";
+
+    # Memoise this iteration & 'can' call ? Results won't change !
+    foreach my $l (@{$self->{listeners}}) {
+        print "   ]] $h{name} $l\n";
+        my $method = $h{name};
+        if ($l->can($method)) {
+            eval {
+                $l->$method($h{args});
+            }; if ($@) {
+                carp ("Listener '$l' die()d on method $h{name}:\n$@");
+            }
+        }
+    }
+}
 
 # }}}
 

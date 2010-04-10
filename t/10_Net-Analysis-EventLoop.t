@@ -18,7 +18,7 @@ BEGIN { use_ok('Net::Analysis::EventLoop') };
 my ($d) = Net::Analysis::Dispatcher->new();
 isnt ($d, undef, "new dispatcher");
 
-my ($mock_listener_pkt) = mock_listener(qw(tcp_packet));
+my ($mock_listener_pkt) = mock_listener(qw(_internal_tcp_packet));
 my ($mock_listener_scf) = mock_listener(qw(setup teardown));
 
 $d->add_listener (listener => $mock_listener_pkt);
@@ -45,7 +45,7 @@ is_deeply (\@calls, ['setup', 'teardown'], "scaffold events present");
 #### Check for the packet events
 #
 while (($event_name, @args) = $mock_listener_pkt->next_call()) {
-    next if ($event_name ne 'tcp_packet');
+    next if ($event_name ne '_internal_tcp_packet');
     $pkt = $args[0][1]{pkt};
     my $str = $pkt->[PKT_SLOT_FROM]."-".$pkt->[PKT_SLOT_TO].
                ",S$pkt->[PKT_SLOT_SEQNUM],A$pkt->[PKT_SLOT_ACKNUM]";

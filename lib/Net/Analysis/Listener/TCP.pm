@@ -28,7 +28,7 @@ This module subclasses Net::Analysis::Listener::Base, and manages TCP sessions
 behind the scenes.
 
 Listens for:
-  tcp_packet        - note: augments packet, for downstream listeners
+  _internal_tcp_packet - note: augments packet, for downstream listeners
 
 Emits:
   tcp_session_start
@@ -51,7 +51,11 @@ is not a good example for writing your own listener.
       0x02 - per-monologue
       0x04 - per-session
 
+ k - a TCP-session key to suddenly get verbose about 
+
  dump - dumps out monologues as files into the current directory
+
+ max_session_size - discard packets once this many bytes have been seen
 
 =head1 EMITTED EVENTS
 
@@ -131,6 +135,10 @@ sub validate_configuration {
                                       default => 0},
                             dump  => {type => SCALAR,
                                       default => 0},
+                            max_session_size => {type => SCALAR,
+                                                 default => 0},
+                            k     => {type => SCALAR,
+                                      default => ''},
                           });
 
     return \%h;
@@ -142,6 +150,8 @@ sub validate_configuration {
 
 sub setup {
     my ($self) = shift;
+
+    $self->trace ("======[--:--:--.------] TCP setup") if ($self->{v} & 0x08);
 
     $self->{active_tcp_sessions}   = {};
 }
@@ -165,17 +175,21 @@ sub teardown {
         $self->emit (name => 'tcp_session_end',
                      args => {socketpair_key => $k});
     }
+
+    $self->trace ("======[--:--:--.------] TCP teardown") if ($self->{v} & 0x08);
 }
 
 # }}}
 
-# {{{ tcp_packet
+# {{{ _internal_tcp_packet
 
-# tcp_packet: emits tcp_session_start, tcp_monologue, tcp_session_end
+# _internal_tcp_packet: emits tcp_session_start, tcp_monologue, tcp_session_end
 
-sub tcp_packet {
+sub _internal_tcp_packet {
     my ($self, $args) = @_;
     my ($pkt) = $args->{pkt};
+
+    my @events = (); # The carefully sequenced list of events
 
     # Get the TCP session key from the packet.
     my $k = $pkt->[PKT_SLOT_SOCKETPAIR_KEY];
@@ -183,42 +197,51 @@ sub tcp_packet {
     # Establish session object
     my $sesh = $self->_get_session_object($k);
 
+    return if (($sesh->{total_bytes} >= $self->{max_session_size}) &&
+              ($self->{max_session_size} > 0));
+
     # Feed it packet
     my $ret = $sesh->process_packet(packet => $pkt);
     #my $deb = "  = ". (($self->{v} & 0x08) ? $pkt->as_string(1) : "$pkt");
 
     # Maybe emit events ...
     if ($ret == PKT_ESTABLISHED_SESSION) {
-        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
-        $self->emit (name => 'tcp_session_start',
-                     args => {socketpair_key => $k,
-                              pkt => $pkt});
+        $self->_trace_pkt($pkt,$ret) if ($self->{v} & 0x01);
+        push (@events, {name => 'tcp_session_start',
+                        args => {socketpair_key => $k,
+                                 pkt => $pkt} });
 
     } elsif ($ret == PKT_FLIPPED_DIR) {
-        $self->emit (name => 'tcp_monologue',
-                     args => {socketpair_key => $k,
-                              monologue      => $sesh->previous_monologue()});
+        push (@events, {name => 'tcp_monologue',
+                        args => {socketpair_key => $k,
+                                 monologue => $sesh->previous_monologue()}});
 
-        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt,$ret) if ($self->{v} & 0x01);
 
     } elsif ($ret == PKT_TERMINATED_SESSION) {
         $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
 
         # Clear out any remaining data
         if ($sesh->has_current_monologue()) {
-            $self->emit (name => 'tcp_monologue',
-                         args =>{socketpair_key => $k,
-                                 monologue      =>$sesh->current_monologue()});
+            push (@events, {name => 'tcp_monologue',
+                            args =>{socketpair_key => $k,
+                                    monologue =>$sesh->current_monologue()}});
         }
 
         # Now end the session nicely.
-        $self->emit (name => 'tcp_session_end',
-                     args => {socketpair_key => $k,
-                              pkt => $pkt});
+        push (@events, {name => 'tcp_session_end',
+                        args => {socketpair_key => $k,
+                                 pkt => $pkt}});
         $self->_close_down_session ($k);
 
     } else {
-        $self->_trace_pkt($pkt) if ($self->{v} & 0x01);
+        $self->_trace_pkt($pkt,$ret) if ($self->{v} & 0x01 || $self->{k} eq $k);
+    }
+
+    unshift (@events, {name => 'tcp_packet', args => $args} );
+
+    foreach (@events) {
+        $self->emit( %{ $_ } );
     }
 }
 
@@ -325,6 +348,12 @@ sub _close_down_session {
 
     # XXXX Implement 2xMLS TIME_WAIT thing, ideally ...
 
+    if ($self->{active_tcp_sessions}{$k}{rst}) {
+        $self->{rsts}++;
+    } else {
+        $self->{non_rsts}++;
+    }
+
     delete ($self->{active_tcp_sessions}{$k});
 }
 
@@ -332,10 +361,13 @@ sub _close_down_session {
 # {{{ _trace_pkt
 
 sub _trace_pkt {
-    my ($self, $pkt) = @_;
+    my ($self, $pkt, $str) = @_;
     my $deb = "  = ". (($self->{v} & 0x08)
                        ? pkt_as_string($pkt,1)
                        : pkt_as_string($pkt));
+
+    $deb .= " '$str'" if (defined $str);
+
     $self->trace($deb);
 }
 

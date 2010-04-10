@@ -32,7 +32,7 @@ $el->loop_file (filename => "t/t1_google.tcp");
 my (@found_ev);
 my ($args);
 while (my (@call) = $mock->next_call()) {
-    print ">> $call[0] (". join(',', sort keys %{$call[1][1]} ).")\n";
+    #print ">> $call[0] (". join(',', sort keys %{$call[1][1]} ).")\n";
     push (@found_ev, $call[0]);
     $args = $call[1][1];
 }

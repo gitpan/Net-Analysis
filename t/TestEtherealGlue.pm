@@ -38,6 +38,20 @@ side is doing the talking. Here is an example, with the blank lines removed:
 This routine loads up an Ethereal hex save file, and returns an arrayref of
 monologues.
 
+More recent versions of wireshark indent the responses a lot less, e.g.:
+
+ 00000260  50 72 61 67 6d 61 3a 20  6e 6f 2d 63 61 63 68 65 Pragma:  no-cache
+
+ 00000270  0d 0a 43 61 63 68 65 2d  43 6f 6e 74 72 6f 6c 3a ..Cache- Control:
+
+ 00000280  20 6e 6f 2d 63 61 63 68  65 0d 0a 0d 0a           no-cach e....
+
+     00000000  48 54 54 50 2f 31 2e 31  20 32 30 30 20 4f 4b 0d HTTP/1.1  200 OK.
+
+     00000010  0a 44 61 74 65 3a 20 57  65 64 2c 20 33 31 20 4d .Date: W ed, 31 M
+
+     00000020  61 72 20 32 30 31 30 20  31 36 3a 33 32 3a 31 35 ar 2010  16:32:15
+
 =cut
 
 sub hexdump_to_monologues {

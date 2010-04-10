@@ -8,7 +8,7 @@ require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(main);
-our $VERSION = '0.40';
+our $VERSION = '0.41';
 
 use Data::Dumper;
 
@@ -179,14 +179,15 @@ write custom reports that mixed events from multiple protocols
 So here it is. Net::Analysis is a stack of protocol handlers that emit, and
 listen for, events.
 
-At the bottom level, a combination of L<Net::Pcap> and L<NetPacket> emit
-C<tcp_packet> events as they are read from the input file (or live capture from
-a network device.)
+At the bottom level, a combination of L<Net::Pcap> and L<NetPacket>
+emit C<_internal_tcp_packet> events as they are read from the input
+file (or live capture from a network device.)
 
-The TCP listener (L<Net::Analysis::Listener::TCP>) picks up these packets, and
-reconstructs TCP streams; in turn, it emits C<tcp_monologue> events. A
-monologue is a series of bytes sent in one direction in a TCP stream; a typical
-TCP session will involve a number of monologues, back and forth.
+The TCP listener (L<Net::Analysis::Listener::TCP>) picks up these
+packets, and reconstructs TCP streams; in turn, it emits
+C<tcp_monologue> events. A monologue is a series of bytes sent in one
+direction in a TCP stream; a TCP session will usually involve a number
+of monologues, back and forth.
 
 For example, a typical TCP session for HTTP will consist of two monologues; the
 request (client to server), and then the reponse (server to client). Although
@@ -195,10 +196,11 @@ the same TCP session. A typical SMTP session will involve a rapid sequence of
 small monologues as the sender talks SMTP, before sending the bulk of the
 (hopefully not bulk) email.
 
-The protocol analysers tend to listen for the C<tcp_monologue> event and build
-from there. For example, the HTTP listener (L<Net::Analysis::Listener::HTTP>)
-listens for C<tcp_monologues>, pairs them up, creates C<HTTP::Request> and
-C<HTTP::Response> objects for them, and emits C<http_transaction> events.
+The protocol analysers tend to listen for the C<tcp_monologue> event
+and build from there. For example, the HTTP listener
+(L<Net::Analysis::Listener::HTTP>) listens for C<tcp_monologue>s,
+pairs them up, creates C<HTTP::Request> and C<HTTP::Response> objects
+for them, and emits C<http_transaction> events.
 
 If you wanted to sift for transactions to a certain website, this is the event
 you'd listen for:
@@ -236,7 +238,7 @@ C<tcp_session_end>
 
 =item *
 
-C<tcp_packet> - might be out of order, or a duplicate
+C<_internal_tcp_packet> - might be out of order, or a duplicate
 
 =item *
 

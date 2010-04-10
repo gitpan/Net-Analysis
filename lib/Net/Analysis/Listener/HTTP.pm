@@ -140,9 +140,9 @@ sub tcp_monologue {
                     req_mono       => $req_mono,
                     resp           => $resp,
                     resp_mono      => $mono,
-                    t_end          => $mono->t_end()};
+                    t_end          => $mono->t_end()->clone()};
         if (defined $req_mono) {
-            $args->{t_start} = $sesh->{req_mono}->t_start();
+            $args->{t_start} = $sesh->{req_mono}->t_start()->clone();
             $args->{t_elapsed} = $args->{t_end} - $args->{t_start};
         }
 
@@ -290,7 +290,7 @@ Emits:
 
 =head1 CONFIGURATION
 
- v - verbosity. If >0, print out sample one-line summary for each xaction
+ v - verbosity. If >0, print out sample one-line summary for each transaction
 
 =head1 EMITTED EVENTS
 
@@ -310,9 +310,15 @@ response. The event will contain the following arguments:
 
 If you need packet level info, you can dig it out of the TCPMonologue objects.
 
+Note that this particular module does not currently support HTTP
+pipelining; it expects requests/responses to correspond to
+back-and-forth monologues. Look at the
+L<Net::Analysis::Listener::HTTPPipelining> for an alpha implementation
+of handling pipelined HTTP.
+
 =head1 SEE ALSO
 
-Net::Analysis::Listener::Base
+L<Net::Analysis::Listener::Base>, L<Net::Analysis::Listener::HTTPPipelining>.
 
 =head1 AUTHOR
 

@@ -112,6 +112,24 @@ sub add_packet {
 }
 
 # }}}
+# {{{ add_mono
+
+=head2 add_mono ($other_mono)
+
+Walks through the packets in C<$other_mono>, and adds each one to C<$self>.
+
+=cut
+
+sub add_mono {
+    my ($self) = shift;
+    my ($other_mono) = @_;
+
+    foreach my $pkt (@{ $other_mono->_data_packets }) {
+        $self->add_packet ($pkt);
+    }
+}
+
+# }}}
 # {{{ data
 
 =head2 data ()
@@ -219,32 +237,62 @@ sub first_packet {
 # }}}
 # {{{ which_pkt
 
-=head2 which_pkt ($byte_offset)
+# Deprecated; use which_pkts instead
 
-Given a byte offset from within the monologue, return the packet which
-contributed the byte at that offset, or undef. Bytes are counted from zero.
+sub which_pkt {
+    my ($self, $n) = @_;
+    return $self->which_pkts($n)->[0];
+}
+
+# }}}
+# {{{ which_pkts
+
+=head2 which_pkts ($byte_offset_start [, $byte_offset_end])
+
+Given a byte offset from within the monologue, and optionally an
+offset later in the monologue, return the packets which contributed
+bytes between the offsets (or an empty arrayref if none found). Bytes
+are counted from zero (i.e. offset '0' would be the first byte).
 
 This can be useful to retrieve timestamps of areas inside long-lived
 monologues.
 
 =cut
 
-sub which_pkt {
-    my ($self, $n) = @_;
+sub which_pkts {
+    my ($self, $in_s, $in_e) = @_;
 
-    return undef if ($n < 0 || $n >= CORE::length($self->{data}));
+    $in_e ||= $in_s;
+    die "bad args to which_pkts; end < start" if ($in_e < $in_s);
 
-    my $prev_pkt;
+    return [] if ($in_s < 0 || $in_s >= CORE::length($self->{data}));
+
+    my @ret;
     for my $row (@{ $self->{which_pkts} }) {
-        if ($row->[0] > $n) {
-            # This row contains bytes ahead of $n; previous is what we want
-            die "which_pkt confusion" if (!defined $prev_pkt);
-            return $prev_pkt;
-        }
-        $prev_pkt = $row->[1];
+        my ($pkt_s, $pkt) = @$row;
+        my ($pkt_e) = $pkt_s + CORE::length($pkt->[PKT_SLOT_DATA]) - 1;
+
+        # If our desired range can't overlap, go to next
+        next if ($in_e < $pkt_s || $in_s > $pkt_e);
+        push (@ret, $pkt);
     }
 
-    return $prev_pkt;
+    return \@ret;
+}
+
+# }}}
+# {{{ socketpair_key
+
+=head2 socketpair_key ()
+
+Returns the socketpair key of the TCP session containing the
+monologue.
+
+=cut
+
+sub socketpair_key {
+    my ($self) = @_;
+    $self->{socketpair_key};
 }
 
 # }}}
@@ -269,6 +317,26 @@ sub as_string {
 
 # }}}
 
+# {{{ _data_packets
+
+=head2 _data_packets ()
+
+Returns an array-ref, containing all the packets which contributed data to
+the monologue.
+
+NOTE: this method may go away sometime.
+
+=cut
+
+sub _data_packets {
+    my ($self, $n) = @_;
+
+    my @ret = map {$_->[1]} @{ $self->{which_pkts} };
+
+    return \@ret;
+}
+
+# }}}
 
 #### Private helper methods
 #
@@ -277,20 +345,20 @@ sub as_string {
 sub _init_from_first_packet {
     my ($self, $pkt) = @_;
 
-    $self->{n_packets} = 0;
-    $self->{data}      = '';
+    $self->{n_packets}      = 0;
+    $self->{data}           = '';
 
-    # Initialise the monologue
-    $self->{to}   = $pkt->[PKT_SLOT_TO];
-    $self->{from} = $pkt->[PKT_SLOT_FROM];
-    $self->{time} = pkt_time($pkt) + 0; # Make a cloned copy
+    $self->{socketpair_key} = $pkt->[PKT_SLOT_SOCKETPAIR_KEY];
+    $self->{to}             = $pkt->[PKT_SLOT_TO];
+    $self->{from}           = $pkt->[PKT_SLOT_FROM];
+    $self->{time}           = pkt_time($pkt) + 0; # Make a cloned copy
 
-    # Keep copies of the first ever time, and the packet itself
-    $self->{t_start}  = $self->{time};
-    $self->{first_packet} = $pkt;
+    # Keep copies of the first noted time, and the packet itself
+    $self->{t_start}        = $self->{time};
+    $self->{first_packet}   = $pkt;
 
     # Keep track of which packets contributed which bytes
-    $self->{which_pkts} = [];
+    $self->{which_pkts}     = [];
 }
 
 # }}}

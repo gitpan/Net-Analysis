@@ -38,13 +38,15 @@ sub new {
 
 sub loop_file {
     my ($self) = shift;
-    my %h = validate (@_, { filename  => { type => SCALAR } });
+    my %h = validate (@_, { filename  => { type => SCALAR },
+                            no_setup_teardown => { type => SCALAR,
+                                                   default => 0} });
 
     my ($np_err);
     my ($pcap_t) = Net::Pcap::open_offline ($h{filename}, \$np_err);
 
     carp "event_loop('$h{filename}') failed: '$np_err'\n" if (defined $np_err);
-    $self->_event_loop ($pcap_t);
+    $self->_event_loop ($pcap_t, $h{no_setup_teardown});
 }
 
 # }}}
@@ -182,8 +184,11 @@ sub _netpacket_packet_to_our_packet {
 # {{{ _event_loop
 
 sub _event_loop {
-    my ($self, $pcap_t) = @_;
-    $self->{dispatcher}->emit_event (name => 'setup');
+    my ($self, $pcap_t, $no_setup_teardown) = @_;
+
+    unless ($no_setup_teardown) {
+        $self->{dispatcher}->emit_event (name => 'setup');
+    }
 
     while (1) {
         my (%hdr);
@@ -200,14 +205,17 @@ sub _event_loop {
         next if (!defined $our_pkt);
 
         # This will need re-jigging when we handle more than just TCP
-        $self->{dispatcher}->emit_event (name => 'tcp_packet',
+        $self->{dispatcher}->emit_event (name => '_internal_tcp_packet',
                                          args => {pkt => $our_pkt});
     }
 
-    $self->{dispatcher}->emit_event (name => 'teardown');
+    unless ($no_setup_teardown) {
+        $self->{dispatcher}->emit_event (name => 'teardown');
+    }
 }
 
 # }}}
+
 
 1;
 __END__
@@ -229,6 +237,13 @@ Net::Analysis::EventLoop - generate a stream of packets
 
  # Now run it over a file ...
  $el->loop_file (filename => 'some.tpcdump');
+
+ # ... or run it over many files ...
+ $d->emit_event (name => 'setup'); # need to handle setup/teardown by hand
+ foreach (qw(file1 file2 ...)) {
+   $el->loop_file (filename => $_, no_setup_teardown => 1);
+ }
+ $d->emit_event (name => 'teardown');
 
  # ... or try live capture (using the same filter syntax as tcpdump et al)
  $el->loop_net (filter => 'port 80');

@@ -61,7 +61,7 @@ $t2 += [0,000001];
 cmp_ok ($t1, '!=', $t2, '!=');
 
 # Cloning
-my $t3 = $t1->_clone();
+my $t3 = $t1->clone();
 cmp_ok ($t1, '==', $t3, 'clone is OK');
 
 $t2 -= [6,000000];

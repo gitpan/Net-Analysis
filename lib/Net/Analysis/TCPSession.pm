@@ -172,7 +172,7 @@ sub as_string {
     my ($self) = @_;
     my $s = '';
 
-    $s .= "[".ref($self)."] ".$self->status();
+    $s .= "[".ref($self)." $self->{total_bytes} bytes] ".$self->status();
 
     return $s;
 }
@@ -191,6 +191,7 @@ sub _init {
     $self->{previous_monologue} = $self->{current_monologue} = undef;
     $self->{future_packets}     = {};
     $self->{status}             = SESH_UNDEFINED;
+    $self->{total_bytes}        = 0;
     $self->{_syn_fins}          = {};
 }
 
@@ -258,8 +259,15 @@ sub _update_status {
         }
     }
 
-    # If we are currently undefined, we can have a good guess of where
-    #  we should be based on this packet
+    if ($pkt->[PKT_SLOT_FLAGS] & RST) {
+        # If the session is being RESET, close it down.
+        # $self->_trace ("-- update_status: RST         : $pkt");
+        $self->status (SESH_CLOSED);
+    }
+
+    # If we are currently undefined, presumably because we've started looking
+    #  at an already established session, have a guess of where we should be
+    #  based on this packet
     if ($self->status() eq SESH_UNDEFINED) {
         if (length($pkt->[PKT_SLOT_DATA]))   {$self->status(SESH_ESTABLISHED)}
         elsif ($pkt->[PKT_SLOT_FLAGS] & SYN) {$self->status(SESH_CONNECTING) }
@@ -323,6 +331,8 @@ sub _consume_data_packet {
     my ($self, $pkt) = @_;
     my $pf = $pkt->[PKT_SLOT_FROM];
     #our $TRACE = 1;
+
+    $self->{total_bytes} += length($pkt->[PKT_SLOT_DATA]);
 
     # Check to see where packet slots into the TCP datastream.
     if ($pkt->[PKT_SLOT_SEQNUM] == $self->{$pf}{seq}) {
@@ -419,7 +429,7 @@ sub _determine_status_change {
     if (defined $prev && $prev ne $self->{status}) {
         # So, we have changed state, to $s. Decide what to return.
         # We don't use =>, since it will single quote our constants !
-        my (%chngs) = (SESH_UNDEFINED,   PKT_REJECTED, # Error !!
+        my (%chngs) = (SESH_UNDEFINED  , PKT_REJECTED, # Error !!
                        SESH_CONNECTING , PKT_OK,
                        SESH_ESTABLISHED, PKT_ESTABLISHED_SESSION,
                        SESH_HALF_CLOSED, PKT_OK,

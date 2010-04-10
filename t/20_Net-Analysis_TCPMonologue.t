@@ -4,7 +4,7 @@
 use strict;
 use Data::Dumper;
 
-use Test::More tests => 20;
+use Test::More tests => 27;
 use t::TestFileIntoPackets;
 
 #########################
@@ -44,9 +44,31 @@ is_deeply ($mono->first_packet(), $pkts[4], 'first_packet');
 # Check out which_pkt retrieval
 is ($mono->which_pkt(-20), undef,                'which_pkt neg value');
 is_deeply ($mono->which_pkt   (0), $pkts[4],     'byte    0 -> pkt 4');
-is_deeply ($mono->which_pkt(1367), $pkts[4],     'byte 1367 -> pkt 6');
+is_deeply ($mono->which_pkt(1367), $pkts[4],     'byte 1367 -> pkt 4');
 is_deeply ($mono->which_pkt(1368), $pkts[6],     'byte 1368 -> pkt 6');
 is_deeply ($mono->which_pkt(2000), $pkts[6],     'byte 2000 -> pkt 6');
 is ($mono->which_pkt($mono->length()+10), undef, 'which_pkt too big value');
+
+my $i = 0;
+my %pkt_id = map {$_ => $i++} @pkts;
+my (@data) = ([ [   0      ] => [4]   ],
+              [ [   0,  200] => [4]   ],
+              [ [1400, 1800] => [6]   ],
+              [ [   0, 1400] => [4,6] ],
+              [ [ 333, 2800] => [4,6] ]);
+foreach my $test (@data) {
+    my ($args, $expected) = @$test;
+    my @ret = map {$pkt_id{$_}} @{ $mono->which_pkts (@$args) };
+    is_deeply (\@ret, $expected, "which_pkts (@$args) -> @$expected");
+}
+
+# concatenation of monologues
+my $mono2 = Net::Analysis::TCPMonologue->new();
+$mono2->add_packet($pkts[4]);
+$mono2->add_packet($pkts[6]);
+
+$mono->add_mono($mono2);
+is ($mono->n_packets(),    4, 'n_packets after add_mono');
+is ($mono->length(),    4490, 'length after add_mono');
 
 __DATA__

@@ -1,5 +1,5 @@
-Net-Analysis version 0.06
-=============================
+Net-Analysis version 0.41
+=========================
 
 This set of modules will assemble TCP streams from PCap network dumps. It also
 provides a flexible callback mechanism to let you easily write protocol
@@ -33,7 +33,7 @@ This module requires these other modules and libraries:
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2004 by A. B. Worrall.
+Copyright (C) 2010 by A. B. Worrall.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.5 or,

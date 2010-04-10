@@ -25,14 +25,14 @@ sub tcpfile_into_packets {
     my (@pkts, $event_name, @args);
 
     my ($d) = Net::Analysis::Dispatcher->new();
-    my ($l) = mock_listener('tcp_packet');
+    my ($l) = mock_listener('_internal_tcp_packet');
     $d->add_listener (listener => $l);
 
     my ($el) = Net::Analysis::EventLoop->new (dispatcher => $d);
     $el->loop_file (filename => $fname);
 
     while (($event_name, @args) = $l->next_call()) {
-        next if ($event_name ne 'tcp_packet');
+        next if ($event_name ne '_internal_tcp_packet');
         push (@pkts, $args[0][1]{pkt});
     }
 

@@ -5,7 +5,7 @@ use 5.008000;
 our $VERSION = '0.01';
 use strict;
 use warnings;
-use Carp qw(carp croak);
+use Carp qw(carp croak confess);
 use POSIX qw(strftime);
 use overload
     q("")  => \&as_string,
@@ -82,6 +82,27 @@ sub new {
     $us = 0 if (!defined $us);
 
     return bless ({'s'=>$s, us=>$us}, $class);
+}
+
+# }}}
+# {{{ clone
+
+# {{{ POD
+
+=head2 clone ()
+
+Returns a new object, holding the same time value as the invocant.
+
+=cut
+
+# }}}
+
+sub clone {
+    my ($self) = shift;
+
+    my $new = { %$self };
+
+    return bless $new => ref($self); # Copy class over
 }
 
 # }}}
@@ -175,6 +196,12 @@ sub as_number {
 
 sub numerical_cmp {
     # If the seconds agree, it's down to the microseconds ...
+    if (ref($_[0]) ne 'Net::Analysis::Time' ||
+        ref($_[1]) ne 'Net::Analysis::Time')
+    {
+        confess "Time<=> args bad: ".ref($_[0]).", ".ref($_[1])."\n";
+    }
+
     if ($_[0]->{'s'} == $_[1]->{'s'}) {
         return ($_[0]->{'us'} <=> $_[1]->{'us'});
     }
@@ -218,7 +245,7 @@ sub addition {
     # Should really work out what to do here ..
     die "we have arg3 3!\n".Data::Dumper::Dumper(\@_) if ($arg3);
 
-    my $new = $arg1->_clone();
+    my $new = $arg1->clone();
 
     $new->_add (_arg_to_nums ($arg2));
 
@@ -232,9 +259,9 @@ sub subtraction {
     my ($arg1, $arg2, $arg3) = @_;
 
     # Should really work out what to do here ..
-    die "we have arg3 4!\n".Data::Dumper::Dumper(\@_) if ($arg3);
+    confess "we have arg3 4!\n".Data::Dumper::Dumper(\@_) if ($arg3);
 
-    my $new = $arg1->_clone();
+    my $new = $arg1->clone();
 
     $new->_subtract (_arg_to_nums ($arg2));
 
@@ -251,8 +278,9 @@ sub subtraction {
 
 =head2 set_format ($format)
 
-Set the default output format for strigification of the date. The parameter is
-either a C<strftime(3)> compliant string, or a named format:
+Set the default output format for stringification of the date/time.
+The parameter is either a C<strftime(3)> compliant string, or a named
+format:
 
   raw  - 1100257189.123456
   time - 10:59:49.123456
@@ -283,17 +311,6 @@ sub set_format {
 
 #### Helpers
 #
-# {{{ _clone
-
-sub _clone {
-    my ($self) = shift;
-
-    my $new = { %$self };
-
-    return bless $new => ref($self); # Copy class over
-}
-
-# }}}
 # {{{ _breakup_float
 
 sub _breakup_float {

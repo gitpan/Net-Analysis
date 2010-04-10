@@ -8,6 +8,8 @@ lib/Net/Analysis/Listener/Example1.pm
 lib/Net/Analysis/Listener/Example2.pm
 lib/Net/Analysis/Listener/Example3.pm
 lib/Net/Analysis/Listener/HTTP.pm
+lib/Net/Analysis/Listener/HTTPPipelining.pm
+lib/Net/Analysis/Listener/PortCounter.pm
 lib/Net/Analysis/Listener/TCP.pm
 lib/Net/Analysis/Packet.pm
 lib/Net/Analysis/TCPMonologue.pm
@@ -15,6 +17,7 @@ lib/Net/Analysis/TCPSession.pm
 lib/Net/Analysis/Time.pm
 Makefile.PL
 MANIFEST
+META.yml			Module meta-data (added by MakeMaker)
 README
 t/00_Net-Analysis.t
 t/01_Net-Analysis-Constants.t
@@ -27,7 +30,9 @@ t/20_Net-Analysis_TCPMonologue.t
 t/21_Net-Analysis-TCPSession.t
 t/40_Net-Analysis-Listener-TCP.t
 t/41_Net-Analysis-Listener-HTTP.t
+t/42_Net-Analysis-Listener-HTTP-pipeline.t
 t/50_Net-Analysis-Examples.t
+t/README
 t/t1_google.hex
 t/t1_google.tcp
 t/t2_lost_packet.hex
@@ -38,9 +43,13 @@ t/t4_keepalive.hex
 t/t4_keepalive.tcp
 t/t5_half_close.hex
 t/t5_half_close.tcp
-t/README
+t/t6_http_pipelining.hex
+t/t6_http_pipelining.tcp
+t/t7_http_post.hex
+t/t7_http_post.tcp
+t/t8_multi_pkt_mono.hex
+t/t8_multi_pkt_mono.tcp
 t/TestEtherealGlue.pm
 t/TestFileIntoPackets.pm
 t/TestMockListener.pm
 TODO
-META.yml                                 Module meta-data (added by MakeMaker)
